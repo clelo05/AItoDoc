@@ -1,0 +1,2239 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AItoDoc · AI 文本排版与导出神器</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Lora:ital,wght@0,500;0,600;1,400&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script>
+window.MathJax = {
+  tex: { inlineMath:[['$','$'],['\\(','\\)']], displayMath:[['$$','$$'],['\\[','\\]']], processEscapes:true },
+  svg: { fontCache:'global' },
+  startup: { typeset:false }
+};
+</script>
+<script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js" async></script>
+<style>
+:root {
+  --bg:       #f5f4f0;
+  --surface:  #ffffff;
+  --surface2: #fafaf8;
+  --border:   #e8e6e1;
+  --border2:  #d2cfc8;
+  --text:     #1c1b18;
+  --text2:    #6b6760;
+  --text3:    #aba79f;
+  --accent:   #2563eb;
+  --accent-h: #1d4ed8;
+  --accent-lt:#eff4ff;
+  --green:    #16a34a;
+  --green-lt: #f0fdf4;
+  --red:      #dc2626;
+  --red-lt:   #fef2f2;
+  --sb-w:     256px;
+  --hh:       52px;
+  --fh:       62px;
+  --font:     'Inter', system-ui, sans-serif;
+  --mono:     'JetBrains Mono', monospace;
+  --serif:    'Lora', Georgia, serif;
+}
+*, *::before, *::after { box-sizing:border-box; margin:0; padding:0; }
+html, body { height:100%; overflow:hidden; background:var(--bg); color:var(--text); font-family:var(--font); -webkit-font-smoothing:antialiased; }
+
+/* ─── HEADER ──────────────────────────────── */
+header {
+  position:fixed; inset:0 0 auto 0; height:var(--hh); z-index:200;
+  background:var(--surface); border-bottom:1px solid var(--border);
+  display:flex; align-items:center; padding:0 18px; gap:10px;
+  box-shadow:0 1px 3px rgba(0,0,0,.05);
+}
+.logo { display:flex; align-items:center; gap:7px; font-size:16px; font-weight:600; letter-spacing:-.02em; }
+.logo-mark { width:26px; height:26px; border-radius:6px; background:var(--accent); display:flex; align-items:center; justify-content:center; }
+.logo-mark svg { stroke:#fff; }
+.h-sep { width:1px; height:18px; background:var(--border); }
+.h-sub { font-size:12px; color:var(--text3); }
+.h-gap { flex:1; }
+#mj-badge { font-size:11px; font-family:var(--mono); display:flex; align-items:center; gap:5px; color:var(--text3); transition:color .3s; }
+#mj-badge.ready { color:var(--green); }
+#mj-badge .dot { width:6px; height:6px; border-radius:50%; background:currentColor; }
+.help-btn { width:26px; height:26px; border-radius:50%; background:none; border:1px solid var(--border2); color:var(--text3); cursor:pointer; display:flex; align-items:center; justify-content:center; transition:all .12s; margin-left:4px; flex-shrink:0; }
+.help-btn:hover { background:var(--accent-lt); color:var(--accent); border-color:#bfdbfe; }
+
+/* ─── HELP MODAL ─────────────────────────────── */
+.modal-overlay { position:fixed; inset:0; background:rgba(0,0,0,.4); z-index:2000; display:flex; align-items:center; justify-content:center; opacity:0; transition:opacity .2s; pointer-events:none; }
+.modal-overlay.show { opacity:1; pointer-events:auto; }
+.modal { background:var(--surface); border-radius:14px; box-shadow:0 12px 48px rgba(0,0,0,.18); width:480px; max-width:calc(100vw - 40px); max-height:calc(100vh - 80px); overflow-y:auto; padding:28px 30px 24px; position:relative; transform:translateY(16px) scale(.98); transition:transform .22s cubic-bezier(0.4,0,0.2,1), opacity .2s; }
+.modal-overlay.show .modal { transform:none; }
+.modal-close { position:absolute; top:14px; right:14px; width:26px; height:26px; border-radius:6px; background:none; border:none; cursor:pointer; display:flex; align-items:center; justify-content:center; color:var(--text3); transition:all .12s; }
+.modal-close:hover { background:var(--bg); color:var(--text2); }
+.modal-title { font-size:17px; font-weight:600; color:var(--text); margin-bottom:3px; letter-spacing:-.02em; }
+.modal-sub { font-size:12.5px; color:var(--text3); margin-bottom:22px; }
+.modal-features { display:flex; flex-direction:column; gap:16px; }
+.mf-item { display:flex; gap:14px; align-items:flex-start; }
+.mf-icon { width:34px; height:34px; border-radius:9px; background:var(--accent-lt); display:flex; align-items:center; justify-content:center; flex-shrink:0; color:var(--accent); }
+.mf-icon.green { background:var(--green-lt); color:var(--green); }
+.mf-icon.amber { background:#fffbeb; color:#d97706; }
+.mf-icon.purple { background:#f5f3ff; color:#7c3aed; }
+.mf-icon.slate  { background:#f1f5f9; color:#475569; }
+.mf-body { flex:1; padding-top:1px; }
+.mf-name { font-size:13px; font-weight:600; color:var(--text); margin-bottom:3px; }
+.mf-desc { font-size:12px; color:var(--text2); line-height:1.6; }
+.mf-desc kbd { background:var(--bg); border:1px solid var(--border2); border-radius:4px; font-family:var(--mono); font-size:10.5px; padding:1px 5px; color:var(--text2); }
+.modal-divider { height:1px; background:var(--border); margin:22px 0 18px; }
+.modal-footer { display:flex; align-items:center; justify-content:space-between; }
+.modal-tip { font-size:11.5px; color:var(--text3); }
+.modal-ok-btn { background:var(--accent); color:#fff; border:none; font-family:var(--font); font-size:13px; font-weight:500; padding:8px 24px; border-radius:7px; cursor:pointer; transition:background .12s; }
+.modal-ok-btn:hover { background:var(--accent-h); }
+
+/* ─── LAYOUT ──────────────────────────────── */
+.app { display:flex; margin-top:var(--hh); height:calc(100vh - var(--hh)); overflow:hidden; }
+
+/* ─── SIDEBAR ─────────────────────────────── */
+.sidebar { width:var(--sb-w); flex-shrink:0; background:var(--surface); border-right:1px solid var(--border); display:flex; flex-direction:column; overflow:hidden; transition:width 0.22s cubic-bezier(0.4,0,0.2,1); }
+.sidebar.collapsed { width:0; border-right-color:transparent; }
+.sb-top { padding:12px 10px 10px; border-bottom:1px solid var(--border); flex-shrink:0; }
+.sb-title-row { display:flex; align-items:center; justify-content:space-between; margin-bottom:8px; }
+.sb-title { font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:.1em; color:var(--text3); }
+.sb-badge { font-size:10.5px; font-family:var(--mono); background:var(--bg); color:var(--text3); padding:1px 7px; border-radius:10px; border:1px solid var(--border); }
+.sb-collapse-btn { width:20px; height:20px; border-radius:4px; background:none; border:1px solid var(--border); cursor:pointer; display:flex; align-items:center; justify-content:center; color:var(--text3); flex-shrink:0; transition:all .12s; }
+.sb-collapse-btn:hover { background:var(--bg); color:var(--text2); border-color:var(--border2); }
+.sb-expand-fab { position:fixed; left:0; top:calc(var(--hh) + 10px); z-index:150; width:22px; height:40px; background:var(--surface); border:1px solid var(--border); border-left:none; border-radius:0 6px 6px 0; cursor:pointer; display:none; align-items:center; justify-content:center; color:var(--text3); box-shadow:2px 0 5px rgba(0,0,0,.08); transition:all .12s; }
+.sb-expand-fab:hover { color:var(--accent); background:var(--accent-lt); border-color:#bfdbfe; }
+.sb-expand-fab.visible { display:flex; }
+.new-btn { width:100%; padding:7px 10px; background:var(--accent); color:#fff; border:none; border-radius:6px; font-family:var(--font); font-size:12.5px; font-weight:500; cursor:pointer; transition:background .12s; display:flex; align-items:center; justify-content:center; gap:5px; }
+.new-btn:hover { background:var(--accent-h); }
+.arch-list { flex:1; overflow-y:auto; padding:6px; display:flex; flex-direction:column; gap:2px; }
+.arch-empty { color:var(--text3); font-size:12px; text-align:center; padding:28px 12px; line-height:1.7; }
+.arch-item { border-radius:7px; padding:8px 10px; cursor:pointer; transition:background .1s; border:1px solid transparent; position:relative; }
+.arch-item:hover { background:var(--bg); border-color:var(--border); }
+.arch-item.active { background:var(--accent-lt); border-color:#bfdbfe; }
+.arch-name { font-size:13px; font-weight:500; color:var(--text); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; padding-right:22px; }
+.arch-item.active .arch-name { color:var(--accent); }
+.arch-meta { font-size:11px; color:var(--text3); margin-top:2px; }
+.arch-del { position:absolute; right:7px; top:50%; transform:translateY(-50%); width:18px; height:18px; border-radius:4px; background:none; border:none; cursor:pointer; display:flex; align-items:center; justify-content:center; color:var(--text3); opacity:0; transition:opacity .1s, background .1s; }
+.arch-item:hover .arch-del { opacity:1; }
+.arch-del:hover { background:var(--red-lt); color:var(--red); }
+
+/* ─── MAIN ────────────────────────────────── */
+.main { flex:1; display:flex; flex-direction:column; overflow:hidden; min-width:0; }
+
+/* Tabs */
+.tabs { height:38px; flex-shrink:0; background:var(--surface); border-bottom:1px solid var(--border); display:flex; align-items:stretch; padding:0 16px; }
+.tab { display:flex; align-items:center; gap:5px; padding:0 12px; cursor:pointer; border-bottom:2px solid transparent; font-size:12px; font-weight:500; color:var(--text3); transition:color .12s, border-color .12s; white-space:nowrap; margin-bottom:-1px; }
+.tab.active { color:var(--accent); border-bottom-color:var(--accent); }
+.tab:hover:not(.active) { color:var(--text2); }
+
+/* Editor split */
+.editor-area { flex:1; display:flex; overflow:hidden; min-height:0; position:relative; }
+.ep { display:flex; flex-direction:column; overflow:hidden; min-height:0; min-width:0; background:var(--surface); }
+.ep+.ep { border-left:none; }
+.ep-head { height:36px; padding:0 14px; flex-shrink:0; display:flex; align-items:center; justify-content:space-between; border-bottom:1px solid var(--border); background:var(--surface2); }
+.ep-label { font-size:10.5px; font-weight:600; text-transform:uppercase; letter-spacing:.1em; color:var(--text3); }
+.ep-btns { display:flex; gap:4px; }
+.mbtn { background:none; border:1px solid var(--border2); color:var(--text2); font-family:var(--font); font-size:11px; padding:2px 9px; border-radius:5px; cursor:pointer; transition:all .1s; line-height:1.7; }
+.mbtn:hover { border-color:var(--text2); color:var(--text); background:var(--bg); }
+
+#md-input { flex:1; border:none; resize:none; background:var(--surface); color:var(--text); font-family:var(--mono); font-size:12.5px; line-height:1.75; padding:18px 20px; outline:none; overflow-y:auto; min-height:0; tab-size:2; }
+#latex-output { flex:1; border:none; resize:none; background:#f8f8f6; color:var(--text); font-family:var(--mono); font-size:12px; line-height:1.7; padding:18px 20px; outline:none; overflow-y:auto; min-height:0; tab-size:2; }
+#pane-latex { transition:width 0.22s cubic-bezier(0.4,0,0.2,1); }
+#pane-latex.lx-collapsed { width:0 !important; flex:none !important; overflow:hidden; }
+#latex-expand-tab { position:absolute; right:0; top:50%; transform:translateY(-50%); width:18px; background:var(--surface); border:1px solid var(--border); border-right:none; border-radius:6px 0 0 6px; cursor:pointer; display:none; flex-direction:column; align-items:center; justify-content:center; padding:10px 2px; color:var(--text3); font-size:9px; font-family:var(--font); font-weight:600; letter-spacing:.12em; writing-mode:vertical-rl; text-orientation:mixed; z-index:20; box-shadow:-2px 0 5px rgba(0,0,0,.07); user-select:none; transition:color .12s, border-color .12s; }
+#latex-expand-tab:hover { color:var(--accent); border-color:var(--accent); }
+#latex-expand-tab.visible { display:flex; }
+#md-input::placeholder { color:var(--text3); font-style:italic; font-family:var(--font); }
+
+#preview { flex:1; overflow-y:auto; padding:24px 30px; font-family:var(--serif); font-size:14.5px; line-height:1.85; background:var(--surface); color:var(--text); min-height:0; }
+#preview h1 { font-family:var(--serif); font-size:1.65em; font-weight:600; margin:.9em 0 .4em; padding-bottom:.3em; border-bottom:1px solid var(--border); }
+#preview h2 { font-size:1.28em; font-weight:600; margin:.85em 0 .25em; }
+#preview h3 { font-size:1.08em; font-weight:600; margin:.7em 0 .2em; }
+#preview p  { margin:.5em 0; }
+#preview ul,#preview ol { margin:.4em 0; padding-left:1.6em; }
+#preview li { margin:.2em 0; }
+#preview strong { font-weight:600; }
+#preview em { font-style:italic; }
+#preview code { font-family:var(--mono); font-size:.81em; background:#f3f4f6; padding:1px 5px; border-radius:4px; color:#b45309; }
+#preview pre { background:#f8f8f6; border:1px solid var(--border); padding:13px 16px; border-radius:7px; overflow-x:auto; margin:.7em 0; font-family:var(--mono); font-size:12px; line-height:1.65; }
+#preview pre code { background:none; padding:0; color:var(--text); }
+#preview blockquote { border-left:3px solid var(--border2); margin:.7em 0; padding:.2em 0 .2em 1em; color:var(--text2); font-style:italic; }
+#preview hr { border:none; border-top:1px solid var(--border); margin:1.2em 0; }
+#preview a { color:var(--accent); }
+#preview .math-display { text-align:center; margin:1em 0; overflow-x:auto; }
+#preview .math-code { background:#f3f4f6; padding:1px 5px; border-radius:4px; font-family:var(--mono); font-size:.87em; }
+#preview .math-inline sub, #preview .math-inline sup { font-size:.75em; line-height:0; position:relative; vertical-align:baseline; }
+#preview .math-inline sup { top:-.4em; }
+#preview .math-inline sub { bottom:-.25em; }
+#preview table { border-collapse:collapse; width:100%; margin:.7em 0; font-size:.9em; font-family:var(--font); }
+#preview th { background:#f3f4f6; font-weight:600; }
+#preview th,#preview td { border:1px solid var(--border); padding:6px 10px; text-align:left; }
+#preview tr:nth-child(even) td { background:#fafafa; }
+
+/* ─── DRAG DIVIDER ────────────────────────── */
+.divider { width:5px; flex-shrink:0; cursor:col-resize; background:var(--border); display:flex; align-items:center; justify-content:center; z-index:10; transition:background .15s; }
+.divider:hover, .divider.dragging { background:#c5c0b8; }
+.divider::after { content:''; width:2px; height:32px; border-radius:2px; background:var(--border2); display:block; transition:background .15s; }
+.divider:hover::after, .divider.dragging::after { background:#9e9890; }
+
+/* ─── FOOTER ──────────────────────────────── */
+footer { height:var(--fh); flex-shrink:0; background:var(--surface); border-top:1px solid var(--border); display:flex; align-items:center; padding:0 16px; gap:8px; box-shadow:0 -1px 3px rgba(0,0,0,.04); }
+.fname-row { display:flex; align-items:center; border:1px solid var(--border2); border-radius:7px; overflow:hidden; transition:border-color .15s, box-shadow .15s; flex-shrink:0; }
+.fname-row:focus-within { border-color:var(--accent); box-shadow:0 0 0 3px #dbeafe; }
+#filename { background:var(--surface); border:none; color:var(--text); font-family:var(--mono); font-size:12.5px; padding:7px 11px; outline:none; width:150px; }
+.fname-ext { background:var(--bg); color:var(--text3); font-family:var(--mono); font-size:12px; padding:7px 9px; border-left:1px solid var(--border2); user-select:none; }
+
+/* Copy button — primary */
+.copy-btn {
+  display:flex; align-items:center; gap:7px;
+  background:var(--accent); color:#fff; border:none;
+  font-family:var(--font); font-size:13px; font-weight:500;
+  padding:9px 20px; border-radius:7px; cursor:pointer;
+  transition:all .15s; white-space:nowrap; flex-shrink:0;
+  box-shadow:0 1px 3px rgba(37,99,235,.2);
+}
+.copy-btn:hover:not(:disabled) { background:var(--accent-h); transform:translateY(-1px); box-shadow:0 3px 8px rgba(37,99,235,.28); }
+.copy-btn:active:not(:disabled) { transform:none; }
+.copy-btn:disabled { opacity:.45; cursor:not-allowed; box-shadow:none; }
+.copy-btn.success { background:var(--green); box-shadow:0 1px 3px rgba(22,163,74,.25); }
+.copy-btn.success:hover { background:#15803d; }
+
+/* Save archive button */
+.sbtn { display:flex; align-items:center; gap:6px; background:none; border:1px solid var(--border2); color:var(--text2); font-family:var(--font); font-size:12.5px; padding:8px 14px; border-radius:7px; cursor:pointer; transition:all .12s; white-space:nowrap; flex-shrink:0; }
+.sbtn:hover { border-color:var(--accent); color:var(--accent); background:var(--accent-lt); }
+
+/* Font selector */
+.font-select { background:var(--surface); border:1px solid var(--border2); color:var(--text2); font-family:var(--font); font-size:12px; padding:7px 8px; border-radius:7px; cursor:pointer; outline:none; flex-shrink:0; transition:all .12s; appearance:auto; }
+.font-select:hover { border-color:var(--accent); color:var(--accent); }
+.font-select:focus { border-color:var(--accent); box-shadow:0 0 0 3px #dbeafe; }
+
+/* Copy target toggle */
+.copy-target-toggle { display:flex; border:1px solid var(--border2); border-radius:7px; overflow:hidden; flex-shrink:0; }
+.ct-btn { background:none; border:none; padding:0 12px; height:36px; font-family:var(--font); font-size:12px; font-weight:500; cursor:pointer; color:var(--text3); transition:all .12s; white-space:nowrap; border-right:1px solid var(--border2); }
+.ct-btn:last-child { border-right:none; }
+.ct-btn.active { background:var(--accent); color:#fff; }
+.ct-btn:not(.active):hover { background:var(--bg); color:var(--text2); }
+
+.status { flex:1; font-size:11.5px; font-family:var(--mono); color:var(--text3); transition:color .2s; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; min-width:0; }
+.status.ok  { color:var(--green); }
+.status.err { color:var(--red); }
+
+@keyframes spin { to { transform:rotate(360deg); } }
+.spin { width:13px; height:13px; border:2px solid rgba(255,255,255,.3); border-top-color:#fff; border-radius:50%; animation:spin .65s linear infinite; flex-shrink:0; }
+
+::-webkit-scrollbar { width:5px; height:5px; }
+::-webkit-scrollbar-track { background:transparent; }
+::-webkit-scrollbar-thumb { background:var(--border2); border-radius:3px; }
+::-webkit-scrollbar-thumb:hover { background:var(--text3); }
+.no-select { user-select:none; pointer-events:none; }
+
+/* ─── FOLDER SYSTEM ─────────────────────────────── */
+.sb-btn-row { display:flex; gap:6px; }
+.sb-btn-row .new-btn { flex:1; }
+.new-folder-btn { flex-shrink:0; width:30px; border-radius:6px; background:none; border:1px solid var(--border2); color:var(--text3); cursor:pointer; display:flex; align-items:center; justify-content:center; transition:all .12s; }
+.new-folder-btn:hover { background:var(--accent-lt); color:var(--accent); border-color:#bfdbfe; }
+
+.folder-item { border-radius:7px; position:relative; margin-bottom:1px; }
+.folder-header { display:flex; align-items:center; gap:4px; padding:5px 8px 5px 6px; cursor:pointer; border-radius:7px; transition:background .1s; min-height:30px; position:relative; }
+.folder-header:hover { background:var(--bg); }
+.folder-chevron { flex-shrink:0; color:var(--text3); transition:transform .15s; line-height:0; }
+.folder-item.open > .folder-header .folder-chevron { transform:rotate(90deg); }
+.folder-icon { flex-shrink:0; color:var(--text3); line-height:0; }
+.folder-item.open > .folder-header .folder-icon { color:var(--accent); }
+.folder-name { flex:1; font-size:12.5px; font-weight:500; color:var(--text2); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; padding-right:46px; min-width:0; }
+.folder-item.open > .folder-header .folder-name { color:var(--text); }
+.folder-name-input { flex:1; font-size:12.5px; font-weight:500; font-family:var(--font); color:var(--text); background:var(--surface); border:1px solid var(--accent); border-radius:4px; padding:1px 5px; outline:none; min-width:0; }
+.folder-actions { position:absolute; right:6px; top:50%; transform:translateY(-50%); display:flex; gap:2px; opacity:0; transition:opacity .1s; }
+.folder-header:hover .folder-actions { opacity:1; }
+.folder-btn { width:18px; height:18px; border-radius:4px; background:none; border:none; cursor:pointer; display:flex; align-items:center; justify-content:center; color:var(--text3); transition:all .1s; }
+.folder-btn:hover { background:var(--bg); color:var(--text2); }
+.folder-btn.del:hover { background:var(--red-lt); color:var(--red); }
+
+.folder-children { padding-left:14px; display:flex; flex-direction:column; gap:2px; padding-bottom:2px; }
+.folder-item:not(.open) > .folder-children { display:none; }
+.folder-empty-hint { font-size:11px; color:var(--text3); padding:3px 6px 5px; }
+
+.uncategorized-label { font-size:10.5px; font-weight:600; text-transform:uppercase; letter-spacing:.08em; color:var(--text3); padding:8px 10px 3px; }
+
+/* drag-and-drop */
+.arch-item[draggable="true"] { cursor:grab; }
+.arch-item.dragging { opacity:.35; }
+.folder-item.drag-over > .folder-header { background:var(--accent-lt); border-radius:6px; outline:1.5px dashed var(--accent); }
+
+/* archive item: move-to-folder button */
+.arch-move { position:absolute; right:29px; top:50%; transform:translateY(-50%); width:18px; height:18px; border-radius:4px; background:none; border:none; cursor:pointer; display:flex; align-items:center; justify-content:center; color:var(--text3); opacity:0; transition:opacity .1s, background .1s; }
+.arch-item:hover .arch-move { opacity:1; }
+.arch-move:hover { background:var(--accent-lt); color:var(--accent); }
+/* widen name padding when move button is present */
+.arch-item.has-folders .arch-name { padding-right:44px; }
+
+/* floating move dropdown */
+.move-dropdown { position:fixed; background:var(--surface); border:1px solid var(--border2); border-radius:8px; box-shadow:0 4px 16px rgba(0,0,0,.12); z-index:600; min-width:150px; max-width:200px; padding:4px 0; font-size:12.5px; }
+.move-dd-item { padding:6px 12px; cursor:pointer; color:var(--text2); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; transition:background .1s; display:flex; align-items:center; gap:6px; }
+.move-dd-item:hover { background:var(--bg); color:var(--text); }
+.move-dd-item.active { color:var(--accent); font-weight:500; }
+.move-dd-item.remove-item { color:var(--text3); }
+.move-dd-item.remove-item:hover { color:var(--red); background:var(--red-lt); }
+.move-dd-sep { height:1px; background:var(--border); margin:3px 0; }
+
+/* ─── HIGHLIGHT TOOLBAR ─────────────────────────────── */
+.hl-toolbar { display:flex; align-items:center; gap:5px; }
+.hl-swatch { width:16px; height:16px; border-radius:4px; border:1px solid rgba(0,0,0,.18); cursor:pointer; flex-shrink:0; padding:0; display:flex; align-items:center; justify-content:center; transition:transform .1s, box-shadow .1s; -webkit-appearance:none; appearance:none; line-height:1; align-self:center; }
+.hl-swatch:hover { transform:scale(1.2); box-shadow:0 1px 5px rgba(0,0,0,.2); }
+.hl-swatch.armed { box-shadow:0 0 0 2px var(--accent); transform:scale(1.15); }
+.hl-clear-btn { background:none; border:1px solid var(--border2); color:var(--text3); font-family:var(--font); font-size:10px; padding:1px 6px; border-radius:4px; cursor:pointer; white-space:nowrap; transition:all .1s; line-height:1.6; display:flex; align-items:center; }
+.hl-clear-btn:hover { border-color:var(--red); color:var(--red); background:var(--red-lt); }
+.hl-vsep { width:1px; height:13px; background:var(--border); flex-shrink:0; align-self:center; }
+.hl-font-select { background:var(--surface); border:1px solid var(--border2); color:var(--text2); font-family:var(--font); font-size:11px; padding:2px 5px; border-radius:5px; cursor:pointer; outline:none; flex-shrink:0; transition:all .12s; appearance:auto; height:22px; align-self:center; }
+.hl-font-select:hover { border-color:var(--accent); color:var(--accent); }
+.hl-font-select:focus { border-color:var(--accent); box-shadow:0 0 0 2px #dbeafe; }
+
+/* Highlight spans inside pre/code: keep text color readable and add radius */
+#preview pre span[style*="background-color"] { border-radius:2px; color:var(--text); }
+#preview code span[style*="background-color"] { border-radius:2px; }
+/* Code block background override when highlighted — !important beats all stylesheet rules */
+#preview pre[data-hl]  { background-color: var(--pre-hl-bg) !important; }
+#preview code[data-hl] { background-color: var(--pre-hl-bg) !important; }
+
+/* Editable preview */
+#preview[contenteditable="true"] { outline:none; caret-color:var(--accent); }
+#preview[contenteditable="true"]:focus-within { box-shadow:inset 2px 0 0 var(--accent); }
+.math-display, .math-inline { cursor:default; }
+
+/* ─── BOOKMARK SIDEBAR ────────────────────────────────── */
+.bm-sidebar { width:220px; flex-shrink:0; background:var(--surface); border-left:1px solid var(--border); display:flex; flex-direction:column; overflow:hidden; transition:width 0.22s cubic-bezier(0.4,0,0.2,1); }
+.bm-sidebar.collapsed { width:0; border-left-color:transparent; }
+.bm-sb-top { padding:12px 10px 10px; border-bottom:1px solid var(--border); flex-shrink:0; }
+.bm-sb-title-row { display:flex; align-items:center; justify-content:space-between; margin-bottom:8px; }
+.bm-sb-title { font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:.1em; color:var(--text3); }
+.bm-sidebar-add-btn { width:100%; padding:7px 10px; background:var(--accent-lt); color:var(--accent); border:1px solid #bfdbfe; border-radius:6px; font-family:var(--font); font-size:12px; font-weight:500; cursor:pointer; transition:all .12s; display:flex; align-items:center; justify-content:center; gap:5px; }
+.bm-sidebar-add-btn:hover { background:var(--accent); color:#fff; border-color:var(--accent); }
+.bm-list { flex:1; overflow-y:auto; padding:6px; display:flex; flex-direction:column; gap:4px; }
+.bm-empty { color:var(--text3); font-size:12px; text-align:center; padding:28px 12px; line-height:1.7; }
+.bm-item { border-radius:7px; border:1px solid var(--border); background:var(--surface2); overflow:hidden; }
+.bm-item-head { display:flex; align-items:center; gap:4px; padding:7px 8px; }
+.bm-name-label { flex:1; font-size:12.5px; font-weight:500; color:var(--accent); cursor:pointer; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; min-width:0; transition:opacity .1s; }
+.bm-name-label:hover { opacity:.7; text-decoration:underline; }
+.bm-toggle-btn { flex-shrink:0; width:18px; height:18px; border-radius:4px; background:none; border:none; cursor:pointer; display:flex; align-items:center; justify-content:center; color:var(--text3); transition:all .12s; }
+.bm-toggle-btn:hover { background:var(--bg); color:var(--text2); }
+.bm-toggle-btn svg { transition:transform .15s; }
+.bm-item.comment-open .bm-toggle-btn svg { transform:rotate(180deg); }
+.bm-del-btn { flex-shrink:0; width:18px; height:18px; border-radius:4px; background:none; border:none; cursor:pointer; display:flex; align-items:center; justify-content:center; color:var(--text3); transition:all .12s; }
+.bm-del-btn:hover { background:var(--red-lt); color:var(--red); }
+.bm-comment-body { display:none; padding:6px 8px 8px; font-size:11.5px; color:var(--text2); line-height:1.6; border-top:1px solid var(--border); white-space:pre-wrap; word-break:break-word; }
+.bm-item.comment-open .bm-comment-body { display:block; }
+.bm-expand-fab { position:fixed; right:0; top:calc(var(--hh) + 10px); z-index:150; width:22px; height:40px; background:var(--surface); border:1px solid var(--border); border-right:none; border-radius:6px 0 0 6px; cursor:pointer; display:none; align-items:center; justify-content:center; color:var(--text3); box-shadow:-2px 0 5px rgba(0,0,0,.08); transition:all .12s; }
+.bm-expand-fab:hover { color:var(--accent); background:var(--accent-lt); border-color:#bfdbfe; }
+.bm-expand-fab.visible { display:flex; }
+
+/* In-preview bookmark mark */
+.bm-mark { color:#1d6fc7; cursor:pointer; border-bottom:1.5px dotted #93c5fd; transition:background .1s; border-radius:2px; }
+.bm-mark:hover { background:var(--accent-lt); }
+
+/* Bookmark toolbar button */
+.bm-tb-btn { background:none; border:1px solid var(--border2); color:var(--text3); font-family:var(--font); font-size:11px; padding:2px 8px; border-radius:5px; cursor:pointer; transition:all .1s; display:flex; align-items:center; gap:4px; line-height:1.7; }
+.bm-tb-btn:hover { border-color:var(--accent); color:var(--accent); background:var(--accent-lt); }
+
+/* Bookmark add dialog */
+.bm-add-panel { position:fixed; background:var(--surface); border:1px solid var(--border2); border-radius:10px; box-shadow:0 8px 32px rgba(0,0,0,.15); z-index:1500; width:268px; padding:16px 16px 13px; display:none; }
+.bm-add-panel.show { display:block; }
+.bm-add-panel-title { font-size:13px; font-weight:600; color:var(--text); margin-bottom:11px; display:flex; align-items:center; gap:7px; }
+.bm-name-inp { width:100%; border:1px solid var(--border2); border-radius:6px; font-family:var(--font); font-size:12.5px; color:var(--text); padding:6px 9px; outline:none; background:var(--surface); margin-bottom:7px; transition:border-color .12s, box-shadow .12s; }
+.bm-name-inp:focus { border-color:var(--accent); box-shadow:0 0 0 3px #dbeafe; }
+.bm-comment-inp { width:100%; border:1px solid var(--border2); border-radius:6px; font-family:var(--font); font-size:12px; color:var(--text); padding:6px 9px; outline:none; background:var(--surface); resize:vertical; min-height:58px; max-height:160px; margin-bottom:11px; transition:border-color .12s, box-shadow .12s; line-height:1.5; }
+.bm-comment-inp:focus { border-color:var(--accent); box-shadow:0 0 0 3px #dbeafe; }
+.bm-add-actions { display:flex; gap:6px; justify-content:flex-end; }
+.bm-cancel-btn { background:none; border:1px solid var(--border2); color:var(--text2); font-family:var(--font); font-size:12px; padding:5px 12px; border-radius:6px; cursor:pointer; transition:all .12s; }
+.bm-cancel-btn:hover { border-color:var(--text2); color:var(--text); }
+.bm-confirm-btn { background:var(--accent); color:#fff; border:none; font-family:var(--font); font-size:12px; font-weight:500; padding:5px 14px; border-radius:6px; cursor:pointer; transition:background .12s; }
+.bm-confirm-btn:hover { background:var(--accent-h); }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">
+    <div class="logo-mark">
+      <svg width="13" height="13" viewBox="0 0 13 13" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <rect x="1" y="1" width="11" height="11" rx="2"/>
+        <line x1="3.5" y1="4.5" x2="9.5" y2="4.5"/>
+        <line x1="3.5" y1="6.5" x2="7.5" y2="6.5"/>
+        <line x1="3.5" y1="8.5" x2="6"   y2="8.5"/>
+      </svg>
+    </div>
+    AItoDoc
+  </div>
+  <div class="h-sep"></div>
+  <span class="h-sub">AI 文本排版与导出神器</span>
+  <div class="h-gap"></div>
+  <span id="mj-badge"><span class="dot"></span>&nbsp;MathJax 加载中…</span>
+  <button class="help-btn" id="help-btn" title="功能介绍">
+    <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="6" r="5.25"/><path d="M4.5 4.5a1.5 1.5 0 0 1 3 0c0 1-1.5 1.25-1.5 2.5"/><circle cx="6" cy="9.5" r=".6" fill="currentColor" stroke="none"/></svg>
+  </button>
+</header>
+
+<!-- HELP MODAL -->
+<div class="modal-overlay" id="help-overlay">
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+    <button class="modal-close" id="modal-close-btn" title="关闭">
+      <svg width="11" height="11" viewBox="0 0 11 11" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="1" y1="1" x2="10" y2="10"/><line x1="10" y1="1" x2="1" y2="10"/></svg>
+    </button>
+    <div class="modal-title" id="modal-title">欢迎使用 AItoDoc 👋</div>
+    <div class="modal-sub">将 AI 输出的 Markdown 一键转为排版精美的 Word / Google Docs 文档</div>
+    <div class="modal-features">
+      <div class="mf-item">
+        <div class="mf-icon">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="1" width="14" height="14" rx="2.5"/><line x1="4" y1="5.5" x2="12" y2="5.5"/><line x1="4" y1="8" x2="10" y2="8"/><line x1="4" y1="10.5" x2="8" y2="10.5"/></svg>
+        </div>
+        <div class="mf-body">
+          <div class="mf-name">粘贴 Markdown，实时预览</div>
+          <div class="mf-desc">将来自 ChatGPT、Claude、DeepSeek、豆包、Gemini 等 AI 的 Markdown 回复粘贴到左侧输入框，右侧「Word 视图」即时呈现排版效果，包括多级标题、列表、代码块、引用、表格、粗体、斜体等。拖拽中间分隔线可自由调整两栏宽度。</div>
+        </div>
+      </div>
+      <div class="mf-item">
+        <div class="mf-icon green">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M2 8.5l4 4 8-8"/></svg>
+        </div>
+        <div class="mf-body">
+          <div class="mf-name">一键复制，粘贴即得成品</div>
+          <div class="mf-desc">点击底部「复制到 Word」按钮，再直接粘贴到 Microsoft Word 或 Google Docs，所有样式（标题层级、加粗、高亮、表格等）完整保留，无需二次调整。底部切换按钮可在 <kbd>Word</kbd> 和 <kbd>Docs</kbd> 两种目标格式间切换。</div>
+        </div>
+      </div>
+      <div class="mf-item">
+        <div class="mf-icon purple">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><text x="2" y="12" font-size="11" font-family="serif" fill="currentColor" stroke="none">∑</text></svg>
+        </div>
+        <div class="mf-body">
+          <div class="mf-name">LaTeX 数学公式</div>
+          <div class="mf-desc">由 MathJax 驱动，支持行内公式 <kbd>$…$</kbd> / <kbd>\(…\)</kbd> 和独占一行的块级公式 <kbd>$$…$$</kbd> / <kbd>\[…\]</kbd>，渲染结果可直接复制到 Word。</div>
+        </div>
+      </div>
+      <div class="mf-item">
+        <div class="mf-icon amber">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="12" height="9" rx="1.5"/><path d="M5 4V3a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v1"/><line x1="8" y1="7.5" x2="8" y2="10.5"/><line x1="6.5" y1="9" x2="9.5" y2="9"/></svg>
+        </div>
+        <div class="mf-body">
+          <div class="mf-name">荧光高亮标注</div>
+          <div class="mf-desc">在右侧预览中选中文字，点击工具栏中的彩色色块（黄 / 绿 / 青 / 粉 / 橙）即可添加荧光高亮；点「清除」去除选中文字的高亮。复制到 Word 后高亮颜色同样完整保留。</div>
+        </div>
+      </div>
+      <div class="mf-item">
+        <div class="mf-icon" style="background:#eff6ff;color:#2563eb">
+          <svg width="16" height="16" viewBox="0 0 16 17" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M3 1h10v14l-5-3-5 3V1z"/><line x1="5.5" y1="6" x2="10.5" y2="6"/></svg>
+        </div>
+        <div class="mf-body">
+          <div class="mf-name">书签与定位跳转</div>
+          <div class="mf-desc">在预览中选中任意文字，点工具栏「书签」按钮可附带备注保存为书签；书签列表显示在右侧书签栏，点击名称即可跳转到对应位置。书签随存档一并保存，复制到 Word 时不会包含书签标记。</div>
+        </div>
+      </div>
+      <div class="mf-item">
+        <div class="mf-icon slate">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M3 13V5l5-3 5 3v8"/><rect x="6" y="9" width="4" height="4"/></svg>
+        </div>
+        <div class="mf-body">
+          <div class="mf-name">本地存档，分文件夹管理</div>
+          <div class="mf-desc">点击「存入档案」保存当前文档（含内容、高亮、书签），左侧存档栏支持新建文件夹分类整理、重命名和删除。所有数据保存在本地浏览器，刷新页面不丢失，无需登录。</div>
+        </div>
+      </div>
+      <div class="mf-item">
+        <div class="mf-icon" style="background:#fdf4ff;color:#9333ea">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 11.5l1.2-.4 6.3-6.3-1-1-6.3 6.3-.2 1.4z"/><line x1="9.5" y1="3" x2="12.5" y2="6"/><line x1="11" y1="13.5" x2="14" y2="13.5"/></svg>
+        </div>
+        <div class="mf-body">
+          <div class="mf-name">直接在 Word 视图中编辑</div>
+          <div class="mf-desc">右侧预览区可直接点击输入，像编辑 Word 文档一样修改内容；编辑结果会自动同步回左侧 Markdown，修改与粘贴导出无缝衔接，无需在两侧来回切换。</div>
+        </div>
+      </div>
+      <div class="mf-item">
+        <div class="mf-icon" style="background:#f0fdf4;color:#16a34a">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="6.5"/><path d="M5.5 8.5s.5 1 2.5 1 2.5-1 2.5-1"/><line x1="5.5" y1="6" x2="6" y2="6"/><line x1="10" y1="6" x2="10.5" y2="6"/></svg>
+        </div>
+        <div class="mf-body">
+          <div class="mf-name">字体与视图切换</div>
+          <div class="mf-desc">工具栏字体下拉支持切换 Calibri、Times New Roman、Arial、宋体、黑体，实时影响 Word 视图和复制结果。顶部标签可在「分栏」「Markdown」「Word」三种视图间切换，适配不同屏幕尺寸。</div>
+        </div>
+      </div>
+    </div>
+    <div class="modal-divider"></div>
+    <div class="modal-footer">
+      <span class="modal-tip">按 <kbd style="background:var(--bg);border:1px solid var(--border2);border-radius:4px;font-family:var(--mono);font-size:10.5px;padding:1px 5px;">Esc</kbd> 或点击背景关闭</span>
+      <button class="modal-ok-btn" id="modal-ok-btn">开始使用</button>
+    </div>
+  </div>
+</div>
+
+<div class="app">
+
+  <!-- SIDEBAR -->
+  <aside class="sidebar">
+    <div class="sb-top">
+      <div class="sb-title-row">
+        <span class="sb-title">存档记录</span>
+        <div style="display:flex;align-items:center;gap:6px">
+          <span class="sb-badge" id="arch-count">0</span>
+          <button class="sb-collapse-btn" id="sb-collapse-btn" title="折叠侧边栏">
+            <svg width="9" height="9" viewBox="0 0 9 9" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6,1 2,4.5 6,8"/></svg>
+          </button>
+        </div>
+      </div>
+      <div class="sb-btn-row">
+        <button class="new-btn" id="new-btn">
+          <svg width="11" height="11" viewBox="0 0 11 11" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><line x1="5.5" y1="1" x2="5.5" y2="10"/><line x1="1" y1="5.5" x2="10" y2="5.5"/></svg>
+          新建文档
+        </button>
+        <button class="new-folder-btn" id="new-folder-btn" title="新建文件夹">
+          <svg width="13" height="12" viewBox="0 0 14 13" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M1 3h5l1.5 2H13v6H1V3z"/>
+            <line x1="7" y1="6.5" x2="7" y2="10.5"/>
+            <line x1="5" y1="8.5" x2="9" y2="8.5"/>
+          </svg>
+        </button>
+      </div>
+    </div>
+    <div class="arch-list" id="arch-list">
+      <div class="arch-empty">存档后，记录将在此显示</div>
+    </div>
+  </aside>
+
+  <!-- SIDEBAR EXPAND FAB -->
+  <button class="sb-expand-fab" id="sb-expand-fab" title="展开存档">
+    <svg width="9" height="9" viewBox="0 0 9 9" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3,1 7,4.5 3,8"/></svg>
+  </button>
+
+  <!-- MAIN -->
+  <div class="main">
+
+    <div class="tabs">
+      <div class="tab active" id="tab-split"   onclick="switchTab('split')">
+        <svg width="11" height="11" viewBox="0 0 11 11" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><rect x="0.5" y="0.5" width="10" height="10" rx="1.5"/><line x1="5.5" y1="0.5" x2="5.5" y2="10.5"/></svg>分栏
+      </div>
+      <div class="tab" id="tab-edit"    onclick="switchTab('edit')">
+        <svg width="11" height="11" viewBox="0 0 11 11" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M1.5 8.5l1.2-.4 4.3-4.3-.8-.8-4.3 4.3-.4 1.2z"/><line x1="6.5" y1="2" x2="9" y2="4.5"/></svg>Markdown
+      </div>
+      <div class="tab" id="tab-preview" onclick="switchTab('preview')">
+        <svg width="11" height="11" viewBox="0 0 11 11" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M0.5 5.5s2-3.5 5-3.5 5 3.5 5 3.5-2 3.5-5 3.5-5-3.5-5-3.5z"/><circle cx="5.5" cy="5.5" r="1.5"/></svg>Word
+      </div>
+      <div class="tab" id="tab-latex" onclick="switchTab('latex')">LaTeX
+      </div>
+    </div>
+
+    <div class="editor-area" id="editor-area">
+      <div class="ep" id="pane-input" style="flex:1">
+        <div class="ep-head">
+          <span class="ep-label">Markdown 输入</span>
+          <div class="ep-btns">
+            <button class="mbtn" id="btn-sample">示例</button>
+            <button class="mbtn" id="btn-clear">清空</button>
+          </div>
+        </div>
+        <textarea id="md-input" spellcheck="false"
+          placeholder="粘贴来自豆包、GPT、deepseek、gemini、Claude等 AI 的 Markdown…&#10;&#10;支持公式：$行内$  $$块公式$$  \(…\)  \[…\]&#10;拖拽中间分隔线可调整两栏宽度"></textarea>
+      </div>
+
+      <div class="divider" id="divider"></div>
+
+      <div class="ep" id="pane-preview" style="flex:1">
+        <div class="ep-head">
+          <span class="ep-label">Word 视图</span>
+          <div class="hl-toolbar">
+            <span class="hl-vsep"></span>
+            <button class="hl-swatch" data-color="#fff176" title="荧光黄" style="background:#fff176"></button>
+            <button class="hl-swatch" data-color="#b9f6ca" title="荧光绿" style="background:#b9f6ca"></button>
+            <button class="hl-swatch" data-color="#b2ebf2" title="荧光青" style="background:#b2ebf2"></button>
+            <button class="hl-swatch" data-color="#f8bbd0" title="荧光粉" style="background:#f8bbd0"></button>
+            <button class="hl-swatch" data-color="#ffe0b2" title="荧光橙" style="background:#ffe0b2"></button>
+            <button class="hl-clear-btn" id="hl-clear-btn" title="清除选中文字的高亮">清除</button>
+            <span class="hl-vsep"></span>
+            <select id="word-font" class="hl-font-select" title="字体">
+              <option value="calibri">Calibri</option>
+              <option value="times">Times New Roman</option>
+              <option value="arial">Arial</option>
+              <option value="songti">宋体</option>
+              <option value="heiti">黑体</option>
+            </select>
+            <span class="hl-vsep"></span>
+            <button class="bm-tb-btn" id="bm-tb-btn" title="为选中文字添加书签（在预览中选中文字后点击）">
+              <svg width="11" height="11" viewBox="0 0 12 13" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2 1h8v11l-4-2.5L2 12V1z"/><line x1="4.5" y1="5" x2="7.5" y2="5"/></svg>
+              书签
+            </button>
+          </div>
+          <span id="pv-hint" style="font-size:11px;color:var(--text3);font-family:var(--font);"></span>
+        </div>
+        <div id="preview"></div>
+      </div>
+
+      <div class="divider" id="divider2"></div>
+
+      <div class="ep" id="pane-latex" style="flex:1">
+        <div class="ep-head">
+          <span class="ep-label">LaTeX 源码</span>
+          <div class="ep-btns">
+            <button class="mbtn" id="btn-copy-latex">复制</button>
+            <button class="sb-collapse-btn" id="latex-collapse-btn" title="折叠 LaTeX 栏" style="margin-left:2px">
+              <svg width="9" height="9" viewBox="0 0 9 9" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3,1 7,4.5 3,8"/></svg>
+            </button>
+          </div>
+        </div>
+        <textarea id="latex-output" readonly spellcheck="false"></textarea>
+      </div>
+      <div id="latex-expand-tab" title="展开 LaTeX 栏">LaTeX</div>
+    </div>
+
+    <footer>
+      <div class="fname-row">
+        <input type="text" id="filename" value="document" autocomplete="off" spellcheck="false">
+        <span class="fname-ext">.docx</span>
+      </div>
+
+      <!-- COPY TARGET TOGGLE -->
+      <div class="copy-target-toggle">
+        <button class="ct-btn active" id="ct-word" onclick="setCopyTarget('word')">Word</button>
+        <button class="ct-btn" id="ct-docs" onclick="setCopyTarget('docs')">Docs</button>
+      </div>
+
+      <!-- PRIMARY: copy -->
+      <button class="copy-btn" id="copy-btn">
+        <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="4.5" y="4.5" width="8" height="8" rx="1.5"/>
+          <path d="M9.5 4.5V3A1.5 1.5 0 0 0 8 1.5H3A1.5 1.5 0 0 0 1.5 3v5A1.5 1.5 0 0 0 3 9.5h1.5"/>
+        </svg>
+        复制到 Word
+      </button>
+
+      <!-- SECONDARY: save archive -->
+      <button class="sbtn" id="save-btn">
+        <svg width="13" height="13" viewBox="0 0 13 13" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M1.5 1.5h7.5l2 2v8h-9.5v-10z"/><rect x="3.5" y="7.5" width="6" height="4"/><rect x="3.5" y="1.5" width="4" height="3"/>
+        </svg>
+        存入档案
+      </button>
+
+      <span class="status" id="status"></span>
+    </footer>
+
+  </div>
+
+  <!-- BOOKMARK SIDEBAR -->
+  <aside class="bm-sidebar collapsed" id="bm-sidebar">
+    <div class="bm-sb-top">
+      <div class="bm-sb-title-row">
+        <span class="bm-sb-title">书签</span>
+        <div style="display:flex;align-items:center;gap:6px">
+          <span class="sb-badge" id="bm-count">0</span>
+          <button class="sb-collapse-btn" id="bm-collapse-btn" title="折叠书签栏">
+            <svg width="9" height="9" viewBox="0 0 9 9" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3,1 7,4.5 3,8"/></svg>
+          </button>
+        </div>
+      </div>
+      <button class="bm-sidebar-add-btn" id="bm-sidebar-add-btn">
+        <svg width="11" height="12" viewBox="0 0 12 13" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2 1h8v11l-4-2.5L2 12V1z"/><line x1="4.5" y1="5" x2="7.5" y2="5"/></svg>
+        添加书签
+      </button>
+    </div>
+    <div class="bm-list" id="bm-list">
+      <div class="bm-empty">选中预览文字后点击「书签」按钮</div>
+    </div>
+  </aside>
+
+  <!-- BOOKMARK EXPAND FAB -->
+  <button class="bm-expand-fab" id="bm-expand-fab" title="展开书签">
+    <svg width="9" height="9" viewBox="0 0 9 9" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6,1 2,4.5 6,8"/></svg>
+  </button>
+
+</div>
+
+<!-- BOOKMARK ADD DIALOG -->
+<div class="bm-add-panel" id="bm-add-panel">
+  <div class="bm-add-panel-title">
+    <svg width="13" height="14" viewBox="0 0 12 13" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2 1h8v11l-4-2.5L2 12V1z"/></svg>
+    添加书签
+  </div>
+  <input type="text" class="bm-name-inp" id="bm-name-inp" placeholder="书签名称（必填）…" maxlength="60" autocomplete="off">
+  <textarea class="bm-comment-inp" id="bm-comment-inp" placeholder="备注内容（可选）…"></textarea>
+  <div class="bm-add-actions">
+    <button class="bm-cancel-btn" id="bm-cancel-btn">取消</button>
+    <button class="bm-confirm-btn" id="bm-confirm-btn">确认</button>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/marked@9.1.6/marked.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/turndown@7.1.3/dist/turndown.js"></script>
+
+<script>
+'use strict';
+
+// ─── SAMPLE ────────────────────────────────────────────────────
+const SAMPLE = `# AItoDoc 功能演示
+
+> 本示例覆盖所有支持的格式，复制到 Word 或 Google Docs 后均可保留样式。
+
+---
+
+## 1. 文字样式
+
+普通文字、**加粗**、*斜体*、***加粗斜体***。
+
+行内代码：\`pd.DataFrame()\`，~~删除线~~（如需保留请勿用于 Word）。
+
+---
+
+## 2. 列表
+
+**无序列表：**
+
+- 动量因子（Momentum）
+- 价值因子（Value）
+  - 市净率 P/B
+  - 市盈率 P/E
+- 质量因子（Quality）
+
+**有序列表：**
+
+1. 数据清洗
+2. 因子计算
+3. 截面回归
+4. 绩效归因
+
+---
+
+## 3. 行内数学公式（$...$）
+
+信息系数 $IC_i$ 衡量第 $i$ 个因子的预测能力，其中下标通过 \`$IC_i$\` 写法实现。
+
+超额收益率 $\\alpha$，市场贝塔 $\\beta_m$，残差 $\\epsilon_i \\sim N(0, \\sigma^2)$。
+
+常用希腊字母：$\\alpha\\ \\beta\\ \\gamma\\ \\delta\\ \\mu\\ \\sigma\\ \\omega\\ \\Sigma\\ \\Omega$。
+
+常用运算符：$\\leq\\ \\geq\\ \\neq\\ \\approx\\ \\times\\ \\pm\\ \\infty\\ \\in\\ \\sum\\ \\prod$。
+
+---
+
+## 4. 反引号包裹的行内公式（\`$...$\`）
+
+资产 \`$R_{p,t}$\` 在时间 \`$t$\` 的收益，方差为 \`$\\sigma^2$\`，夏普比率为 \`$SR = \\frac{\\mu}{\\sigma}$\`。
+
+组合权重 \`$w_i^*$\` 满足约束 \`$\\sum_{i=1}^{N} w_i = 1$\`。
+
+---
+
+## 5. 块级数学公式（$$...$$）
+
+CAPM 定价模型：
+
+$$E(R_i) = R_f + \\beta_i \\cdot (E(R_m) - R_f)$$
+
+多因子模型（Barra 框架）：
+
+$$R_i = \\alpha_i + \\sum_{k=1}^{K} X_{i,k} \\cdot f_k + \\epsilon_i$$
+
+协方差矩阵分解：
+
+$$\\Sigma = X F X^\\top + \\Delta$$
+
+信息比率与 IC 的关系（Grinold 法则）：
+
+$$IR = IC \\cdot \\sqrt{N}$$
+
+---
+
+## 6. 表格
+
+| 因子 | 年化收益 | 年化波动 | 夏普比率 | 最大回撤 |
+|------|----------|----------|----------|----------|
+| 动量 | 12.3%    | 18.5%    | 0.66     | -24.1%   |
+| 价值 | 9.8%     | 14.2%    | 0.69     | -19.7%   |
+| 质量 | 11.1%    | 12.8%    | 0.87     | -15.3%   |
+| 低波 | 8.4%     | 10.1%    | 0.83     | -13.6%   |
+
+---
+
+## 7. 代码块
+
+\`\`\`python
+import pandas as pd
+import numpy as np
+
+def information_coefficient(factor: pd.Series, forward_ret: pd.Series) -> float:
+    """计算因子 IC（Spearman 秩相关）"""
+    return factor.corr(forward_ret, method='spearman')
+
+ic_series = pd.Series([0.05, 0.03, 0.07, -0.02, 0.06])
+print(f"ICIR = {ic_series.mean() / ic_series.std():.4f}")
+\`\`\`
+
+---
+
+## 8. 引用块
+
+> **Grinold & Kahn (1999)**：策略的信息比率等于单次预测的信息系数乘以预测广度的平方根，即 $IR = IC \\cdot \\sqrt{N}$。
+
+---
+
+## 9. 链接
+
+更多资料参见 [MSCI Barra 模型文档](https://www.msci.com) 与 [AQR 研究论文库](https://www.aqr.com/Insights/Research)。
+`;
+
+// ─── MARKED EXTENSIONS ─────────────────────────────────────────
+marked.use({ extensions:[
+  {
+    name:'mathBlock', level:'block',
+    start(s){ const a=s.indexOf('$$'),b=s.indexOf('\\['); return Math.min(...[a,b].filter(x=>x>=0).concat([Infinity])); },
+    tokenizer(s){
+      let m=s.match(/^\$\$([\s\S]*?)\$\$/); if(m) return {type:'mathBlock',raw:m[0],math:m[1].trim()};
+      m=s.match(/^\\\[([\s\S]*?)\\\]/s);    if(m) return {type:'mathBlock',raw:m[0],math:m[1].trim()};
+    },
+    renderer(t){ return `<div class="math-display">\\[${t.math}\\]</div>\n`; }
+  },
+  {
+    name:'mathInline', level:'inline',
+    start(s){ const a=s.indexOf('$'),b=s.indexOf('\\('); return Math.min(...[a,b].filter(x=>x>=0).concat([Infinity])); },
+    tokenizer(s){
+      let m=s.match(/^\\\(([\s\S]*?)\\\)/); if(m) return {type:'mathInline',raw:m[0],math:m[1].trim()};
+      m=s.match(/^\$(?!\$)((?:[^$\\]|\\[\s\S])*?)\$/); if(m) return {type:'mathInline',raw:m[0],math:m[1].trim()};
+    },
+    renderer(t){ return `<span class="math-inline">\\(${t.math}\\)</span>`; }
+  }
+]});
+
+// ─── PREVIEW ───────────────────────────────────────────────────
+const inp    = document.getElementById('md-input');
+const pv     = document.getElementById('preview');
+const pvHint = document.getElementById('pv-hint');
+let pvTimer  = null;
+let pvEdited = false;   // true when user is editing in preview; blocks re-render
+let pvSyncTimer = null;
+
+function renderPreview(){
+  if(pvEdited) return;  // preview is source of truth; don't overwrite
+  const md = inp.value;
+  if(!md.trim()){
+    pv.innerHTML='<p style="color:#aba79f;font-size:13px;font-family:Inter,sans-serif;text-align:center;padding:40px 0;line-height:1.8">预览将在此处显示<br><span style="font-size:11px">在左侧粘贴 Markdown 内容</span></p>';
+    return;
+  }
+  pv.innerHTML = marked.parse(resolveMathCodeBlocks(md));
+  // Convert inline <code>$...$</code> (backtick-wrapped math) into math-inline spans
+  pv.querySelectorAll('code').forEach(el=>{
+    if(el.closest('pre')) return;
+    const text = el.textContent;
+    const m = text.match(/^\$([\s\S]+)\$$/);
+    if(!m) return;
+    const span = document.createElement('span');
+    span.className = 'math-inline math-code';
+    span.dataset.latex = m[1];
+    span.contentEditable = 'false';
+    span.innerHTML = latexToHtmlSimple(m[1]) || m[1];
+    el.replaceWith(span);
+  });
+  // Stamp data-latex BEFORE MathJax replaces the content with SVG,
+  // so Turndown can reconstruct the LaTeX when converting back to Markdown.
+  pv.querySelectorAll('.math-display').forEach(el=>{
+    const m = el.innerHTML.trim().match(/^\\\[([\s\S]*?)\\\]$/);
+    if(m){ el.dataset.latex=m[1].trim(); el.contentEditable='false'; }
+  });
+  pv.querySelectorAll('.math-inline').forEach(el=>{
+    const m = el.innerHTML.trim().match(/^\\\(([\s\S]*?)\\\)$/);
+    if(m){
+      el.dataset.latex=m[1].trim();
+      el.contentEditable='false';
+      // Render as <sub>/<sup> so preview matches what Word/Docs receives
+      el.innerHTML = latexToHtmlSimple(m[1].trim()) || m[1];
+    }
+  });
+  // Re-apply bookmarks after DOM update (before MathJax so math nodes are excluded correctly)
+  restoreBookmarks();
+  // Only run MathJax on display-math blocks (inline math already replaced above)
+  if(window.MathJax && MathJax.typesetPromise){
+    pvHint.textContent='渲染公式…';
+    MathJax.typesetPromise([pv]).then(()=>{ pvHint.textContent=''; }).catch(()=>{ pvHint.textContent='公式错误'; });
+  }
+}
+let _saveTimer=null;
+let _archSaveTimer=null;
+function _autoSaveArch(){
+  if(!activeId) return;
+  const a=archives.find(x=>x.id===activeId); if(!a) return;
+  const md=inp.value.trim(); if(!md) return;
+  const filenameEl=document.getElementById('filename');
+  const userTyped=filenameEl.value.trim();
+  const name=(userTyped && userTyped!=='document') ? userTyped : defaultTitleFromMd(md);
+  a.md=md; a.name=name; a.date=new Date().toISOString(); a.bookmarks=[...bookmarks];
+  renderArchive();
+}
+inp.addEventListener('input',()=>{
+  pvEdited=false;  // markdown takes precedence
+  clearTimeout(pvTimer); pvTimer=setTimeout(renderPreview,350);
+  clearTimeout(_saveTimer); _saveTimer=setTimeout(saveToStorage,800);
+  if(activeId){ clearTimeout(_archSaveTimer); _archSaveTimer=setTimeout(_autoSaveArch,1500); }
+  clearTimeout(_latexTimer); _latexTimer=setTimeout(renderLatex,400);
+});
+
+// ─── TURNDOWN (HTML → Markdown) ────────────────────────────────
+let _td=null;
+function getTd(){
+  if(_td) return _td;
+  if(!window.TurndownService) return null;
+  _td=new TurndownService({headingStyle:'atx',codeBlockStyle:'fenced',bulletListMarker:'-',strongDelimiter:'**',emDelimiter:'*'});
+  // Restore display math from data-latex attribute
+  _td.addRule('mathDisplay',{
+    filter: n=>n.nodeName==='DIV' && n.classList.contains('math-display') && n.dataset.latex,
+    replacement: (_,n)=>`\n\n$$${n.dataset.latex}$$\n\n`
+  });
+  // Restore inline math from data-latex attribute
+  _td.addRule('mathInline',{
+    filter: n=>n.nodeName==='SPAN' && n.classList.contains('math-inline') && n.dataset.latex,
+    replacement: (_,n)=>`$${n.dataset.latex}$`
+  });
+  // Strip highlight spans — highlights are visual only, not synced to Markdown
+  _td.addRule('highlight',{
+    filter: n=>n.nodeName==='SPAN' && n.style && n.style.backgroundColor!=='',
+    replacement: content=>content
+  });
+  // Strip bookmark mark spans — bookmarks are visual only, not synced to Markdown
+  _td.addRule('bmMark',{
+    filter: n=>n.nodeName==='SPAN' && n.classList && n.classList.contains('bm-mark'),
+    replacement: content=>content
+  });
+  // Strip bare spans (execCommand artifacts)
+  _td.addRule('bareSpan',{ filter:'span', replacement: content=>content });
+  return _td;
+}
+
+function syncPreviewNow(){
+  const td=getTd(); if(!td) return;
+  // Clone to safely remove MathJax accessibility nodes before conversion
+  const clone=pv.cloneNode(true);
+  clone.querySelectorAll('[aria-hidden="true"]').forEach(n=>n.remove());
+  clone.querySelectorAll('.MJX-assistive-mml').forEach(n=>n.remove());
+  inp.value=td.turndown(clone);
+}
+
+// Sync preview edits → markdown (debounced)
+pv.addEventListener('input',()=>{
+  pvEdited=true;
+  clearTimeout(pvSyncTimer);
+  pvSyncTimer=setTimeout(()=>{ clearTimeout(pvTimer); syncPreviewNow(); },400);
+  if(activeId){ clearTimeout(_archSaveTimer); _archSaveTimer=setTimeout(_autoSaveArch,1500); }
+  clearTimeout(_latexTimer); _latexTimer=setTimeout(renderLatex,1600);
+});
+
+// Make preview directly editable
+pv.contentEditable='true';
+pv.spellcheck=false;
+
+// contenteditable blocks native link navigation — intercept and open manually
+pv.addEventListener('click', e=>{
+  const a = e.target.closest('a[href]');
+  if(a){ e.preventDefault(); window.open(a.href, '_blank', 'noopener'); }
+});
+
+// ─── FONT SELECTOR → PREVIEW FONT ──────────────────────────────
+const PREVIEW_FONT_STACKS = {
+  calibri:  "Calibri, 'Inter', system-ui, sans-serif",
+  times:    "'Times New Roman', '宋体', 'SimSun', Georgia, serif",
+  arial:    "Arial, '黑体', 'SimHei', sans-serif",
+  songti:   "'宋体', 'SimSun', 'Times New Roman', Georgia, serif",
+  heiti:    "'黑体', 'SimHei', Arial, sans-serif",
+};
+function applyPreviewFont(fontKey){
+  pv.style.fontFamily = PREVIEW_FONT_STACKS[fontKey] || PREVIEW_FONT_STACKS.calibri;
+}
+document.getElementById('word-font').addEventListener('change', e=>{
+  applyPreviewFont(e.target.value);
+});
+
+// ─── HIGHLIGHT BUTTONS ─────────────────────────────────────────
+// Custom highlight: uses Range API so it works inside <pre><code> blocks
+// where execCommand('hiliteColor') is silently ignored by browsers.
+
+// For code blocks: use a noticeably deeper shade as the block background.
+const HL_CODE_BG = {
+  '#fff176': '#fde047',  // yellow  → deeper yellow
+  '#b9f6ca': '#86efac',  // green   → deeper green
+  '#b2ebf2': '#67e8f9',  // cyan    → deeper cyan
+  '#f8bbd0': '#f9a8d4',  // pink    → deeper pink
+  '#ffe0b2': '#fdba74',  // orange  → deeper orange
+};
+
+// Returns the nearest <pre> or standalone inline <code> within #preview
+function findCodeEl(node){
+  let el = node.nodeType === Node.ELEMENT_NODE ? node : node.parentElement;
+  while(el && el !== pv){
+    if(el.tagName === 'PRE') return el;
+    if(el.tagName === 'CODE') return el;
+    el = el.parentElement;
+  }
+  return null;
+}
+
+// Set highlighted background on a code block element using CSS custom property.
+// Using data-hl + CSS var() + !important guarantees it overrides any stylesheet rule.
+function setCodeHlBg(el, color){
+  const bg = HL_CODE_BG[color] || color;
+  el.style.setProperty('--pre-hl-bg', bg);
+  el.dataset.hl = '1';
+}
+
+// Restore or update a code block's background after spans are removed.
+function syncCodeBg(el){
+  const remaining = el.querySelector('span[style*="background-color"]');
+  if(!remaining){
+    el.style.removeProperty('--pre-hl-bg');
+    delete el.dataset.hl;
+  } else {
+    const c = remaining.style.backgroundColor;
+    el.style.setProperty('--pre-hl-bg', HL_CODE_BG[c] || c);
+  }
+}
+
+function applyHiliteColor(color){
+  const sel = window.getSelection();
+  if(!sel || !sel.rangeCount || sel.isCollapsed) return;
+  const range = sel.getRangeAt(0);
+  if(!pv.contains(range.commonAncestorContainer)) return;
+
+  // If inside a code block, set block background via CSS custom property + !important
+  const codeEl = findCodeEl(range.commonAncestorContainer);
+  if(codeEl) setCodeHlBg(codeEl, color);
+
+  try{
+    if(range.startContainer === range.endContainer &&
+       range.startContainer.nodeType === Node.TEXT_NODE){
+      const span = document.createElement('span');
+      span.style.backgroundColor = color;
+      range.surroundContents(span);
+    } else {
+      const frag = range.extractContents();
+      const span = document.createElement('span');
+      span.style.backgroundColor = color;
+      span.appendChild(frag);
+      range.insertNode(span);
+    }
+    sel.removeAllRanges();
+  } catch(e){
+    document.execCommand('hiliteColor', false, color);
+  }
+}
+
+function clearHiliteColor(){
+  const sel = window.getSelection();
+  if(!sel || !sel.rangeCount || sel.isCollapsed){
+    // No selection → clear all highlights in preview
+    pv.querySelectorAll('span[style]').forEach(span=>{
+      const bg = span.style.backgroundColor;
+      if(bg && bg !== 'transparent' && bg !== 'rgba(0, 0, 0, 0)'){
+        const f = document.createDocumentFragment();
+        while(span.firstChild) f.appendChild(span.firstChild);
+        span.replaceWith(f);
+      }
+    });
+    pv.querySelectorAll('[data-hl]').forEach(el=>{
+      el.style.removeProperty('--pre-hl-bg');
+      delete el.dataset.hl;
+    });
+    try{ pv.normalize(); }catch(e){}
+    return;
+  }
+
+  const range = sel.getRangeAt(0);
+  if(!pv.contains(range.commonAncestorContainer)) return;
+
+  const affected = new Set();
+  pv.querySelectorAll('span[style]').forEach(span=>{
+    const bg = span.style.backgroundColor;
+    if(!bg || bg === 'transparent' || bg === 'rgba(0, 0, 0, 0)') return;
+    const spanRange = document.createRange();
+    spanRange.selectNode(span);
+    if(range.compareBoundaryPoints(Range.END_TO_START, spanRange) > 0) return;
+    if(range.compareBoundaryPoints(Range.START_TO_END, spanRange) < 0) return;
+    const codeEl = findCodeEl(span);
+    if(codeEl) affected.add(codeEl);
+    const f = document.createDocumentFragment();
+    while(span.firstChild) f.appendChild(span.firstChild);
+    span.replaceWith(f);
+  });
+  affected.forEach(syncCodeBg);
+  try{ pv.normalize(); }catch(e){}
+  sel.removeAllRanges();
+}
+
+document.querySelectorAll('.hl-swatch').forEach(btn=>{
+  btn.addEventListener('mousedown',e=>{
+    e.preventDefault();  // preserve selection in contenteditable
+    applyHiliteColor(btn.dataset.color);
+    document.querySelectorAll('.hl-swatch').forEach(b=>b.classList.remove('armed'));
+    btn.classList.add('armed');
+  });
+});
+document.getElementById('hl-clear-btn').addEventListener('mousedown',e=>{
+  e.preventDefault();
+  clearHiliteColor();
+  document.querySelectorAll('.hl-swatch').forEach(b=>b.classList.remove('armed'));
+});
+
+// ─── TABS ──────────────────────────────────────────────────────
+let latexCollapsed=false;
+function switchTab(t){
+  ['split','edit','preview','latex'].forEach(x=>{
+    const el=document.getElementById('tab-'+x); if(el) el.classList.toggle('active',x===t);
+  });
+  const ip   = document.getElementById('pane-input');
+  const pp   = document.getElementById('pane-preview');
+  const lp   = document.getElementById('pane-latex');
+  const div  = document.getElementById('divider');
+  const div2 = document.getElementById('divider2');
+  const exTab= document.getElementById('latex-expand-tab');
+  ip.style.display='none'; pp.style.display='none'; lp.style.display='none';
+  div.style.display='none'; div2.style.display='none';
+  if(exTab) exTab.classList.remove('visible');
+  if(t==='edit'){
+    ip.style.width='100%'; ip.style.flex='1'; ip.style.display='flex';
+  } else if(t==='preview'){
+    pp.style.flex='1'; pp.style.display='flex';
+  } else if(t==='latex'){
+    lp.classList.remove('lx-collapsed'); lp.style.flex='1'; lp.style.display='flex';
+  } else { // split: show all three
+    ip.style.width=''; ip.style.flex='1'; ip.style.display='flex';
+    div.style.display='flex';
+    pp.style.flex='1'; pp.style.display='flex';
+    if(!latexCollapsed){
+      div2.style.display='flex';
+      lp.classList.remove('lx-collapsed'); lp.style.flex='1'; lp.style.display='flex';
+    } else {
+      lp.classList.add('lx-collapsed'); lp.style.display='flex';
+      if(exTab) exTab.classList.add('visible');
+    }
+  }
+}
+switchTab('split');
+
+// ─── DRAG RESIZE ───────────────────────────────────────────────
+(function(){
+  const divider = document.getElementById('divider');
+  const paneL   = document.getElementById('pane-input');
+  const area    = document.getElementById('editor-area');
+  let drag=false, startX=0, startW=0;
+  divider.addEventListener('mousedown', e=>{ drag=true; startX=e.clientX; startW=paneL.getBoundingClientRect().width; divider.classList.add('dragging'); document.body.classList.add('no-select'); e.preventDefault(); });
+  document.addEventListener('mousemove', e=>{ if(!drag) return; const aw=area.getBoundingClientRect().width; const dw=divider.offsetWidth; const nw=Math.max(120,Math.min(aw-dw-120,startW+(e.clientX-startX))); paneL.style.width=nw+'px'; paneL.style.flex='none'; });
+  document.addEventListener('mouseup', ()=>{ if(!drag) return; drag=false; divider.classList.remove('dragging'); document.body.classList.remove('no-select'); });
+})();
+(function(){
+  const divider2 = document.getElementById('divider2');
+  const paneP    = document.getElementById('pane-preview');
+  const area     = document.getElementById('editor-area');
+  let drag=false, startX=0, startW=0;
+  divider2.addEventListener('mousedown', e=>{ drag=true; startX=e.clientX; startW=paneP.getBoundingClientRect().width; divider2.classList.add('dragging'); document.body.classList.add('no-select'); e.preventDefault(); });
+  document.addEventListener('mousemove', e=>{ if(!drag) return; const aw=area.getBoundingClientRect().width; const dw=divider2.offsetWidth; const nw=Math.max(120,Math.min(aw-dw-120,startW+(e.clientX-startX))); paneP.style.width=nw+'px'; paneP.style.flex='none'; });
+  document.addEventListener('mouseup', ()=>{ if(!drag) return; drag=false; divider2.classList.remove('dragging'); document.body.classList.remove('no-select'); });
+})();
+
+// ─── MATHJAX ───────────────────────────────────────────────────
+const mjBadge  = document.getElementById('mj-badge');
+const mjReady  = new Promise(resolve=>{
+  (function poll(){
+    if(window.MathJax && MathJax.startup && MathJax.startup.promise){
+      MathJax.startup.promise.then(()=>{ mjBadge.innerHTML='<span class="dot"></span>&nbsp;MathJax 就绪'; mjBadge.classList.add('ready'); resolve(); });
+    } else setTimeout(poll,200);
+  })();
+});
+
+// ─── SVG MATH FOR COPY ─────────────────────────────────────────
+// Renders LaTeX → inline SVG string (with white background, black text)
+const svgCache = new Map();
+async function latexToSvgStr(latex, disp){
+  const key=(disp?'D':'I')+latex;
+  if(svgCache.has(key)) return svgCache.get(key);
+  try{
+    await mjReady;
+    const nd  = await MathJax.tex2svgPromise(latex.trim(),{display:disp});
+    const svg = nd.querySelector('svg');
+    if(!svg){ svgCache.set(key,null); return null; }
+
+    // Measure size
+    const host=document.createElement('div');
+    host.style.cssText='position:fixed;visibility:hidden;top:-99999px;left:0;font-size:16px;line-height:1';
+    host.appendChild(svg.cloneNode(true)); document.body.appendChild(host);
+    const rc=host.firstChild.getBoundingClientRect(); document.body.removeChild(host);
+    const wPx=Math.max(rc.width||40,4), hPx=Math.max(rc.height||14,4);
+
+    svg.setAttribute('width', wPx+'px');
+    svg.setAttribute('height',hPx+'px');
+    svg.setAttribute('xmlns','http://www.w3.org/2000/svg');
+    svg.setAttribute('xmlns:xlink','http://www.w3.org/1999/xlink');
+    // Force black paths for Word compatibility
+    svg.querySelectorAll('[style]').forEach(el=>{
+      el.style.fill='#000'; el.style.stroke='none';
+    });
+    const str = new XMLSerializer().serializeToString(svg);
+    svgCache.set(key,{str,wPx,hPx}); return {str,wPx,hPx};
+  }catch(e){ console.warn('[svgmath]',e); svgCache.set(key,null); return null; }
+}
+
+// ─── BUILD WORD-READY HTML ─────────────────────────────────────
+// Math: MathML via MathJax.tex2mml (Word 2016+ renders as native equation).
+// Fallback: base64-encoded SVG <img> for older Word.
+
+// Convert <code>$...$</code> (backtick-wrapped math) to <sub>/<sup> HTML
+// Unwrap fenced code blocks that contain only a math formula, so marked treats them as math
+function resolveMathCodeBlocks(md){
+  const resolved = md.replace(/^```[^\n]*\n([ \t]*\$\$[\s\S]*?\$\$[ \t]*)\n```/gm, (_, inner)=> inner.trim());
+  return fixEmphasis(resolved);
+}
+
+// Fix bold not rendering when ** is adjacent to CJK chars or Unicode punctuation (e.g. "…").
+// Root cause: marked v9 implements CommonMark's "flanking delimiter" rule. When ** is preceded
+// by a CJK character and followed by punctuation like " or ", it is NOT left-flanking, so the
+// Lexer discards it before the tokenizer is ever called — no amount of tokenizer override helps.
+// Fix: convert **…** / ***…*** directly to <strong>/<em> HTML in the preprocessor.
+// marked v9 still parses the content inside inline HTML tags as Markdown, so nested *italic* works.
+function fixEmphasis(md) {
+  // Split by fenced code blocks and inline code — never touch code content
+  const parts = md.split(/(```+[\s\S]*?```+|`[^`\n]*`)/);
+  return parts.map((p, i) => {
+    if (i % 2 === 1) return p;
+    // *** first so ** doesn't partially match it
+    p = p.replace(/\*{3}([^\n]+?)\*{3}/g,                            (_, t) => `<strong><em>${t}</em></strong>`);
+    p = p.replace(/(?<!\*)\*{2}(?!\*)([^\n]+?)(?<!\*)\*{2}(?!\*)/g, (_, t) => `<strong>${t}</strong>`);
+    return p;
+  }).join('');
+}
+
+function resolveCodeMath(html){
+  return html.replace(/<code>\$([^<]+)\$<\/code>/g, (_, latex)=>{
+    const rendered = latexToHtmlSimple(latex.trim()) || latex;
+    return `<span style="background-color:#f3f4f6;padding:1px 5px;font-family:'Courier New',monospace;font-size:9pt">${rendered}</span>`;
+  });
+}
+
+// Convert <pre><code> blocks and remaining inline <code> to inline-styled elements.
+// Uses background-color (not background shorthand) and <table> for blocks —
+// both required for reliable rendering when pasting into Word / Google Docs.
+function inlineCodeStyles(html){
+  // Code blocks: <pre><code>...</code></pre> → single-cell table with gray bg
+  html = html.replace(/<pre><code[^>]*>([\s\S]*?)<\/code><\/pre>/g, (_, content)=>
+    `<table width="100%" style="border-collapse:collapse;margin:6pt 0"><tr>` +
+    `<td style="background-color:#f3f4f6;border:1pt solid #d1d5db;padding:8pt 10pt;` +
+    `font-family:'Courier New',monospace;font-size:9pt;white-space:pre-wrap;line-height:1.5">` +
+    `${content}</td></tr></table>`
+  );
+  // Inline code: remaining <code>...</code> → styled <span>
+  html = html.replace(/<code>([\s\S]*?)<\/code>/g, (_, content)=>
+    `<span style="font-family:'Courier New',monospace;font-size:9pt;background-color:#f3f4f6;padding:1px 5px">${content}</span>`
+  );
+  return html;
+}
+
+const FONT_STACKS = {
+  calibri:  "Calibri,'宋体',sans-serif",
+  times:    "'Times New Roman','宋体','SimSun',serif",
+  arial:    "Arial,'黑体','SimHei',sans-serif",
+  songti:   "'宋体','SimSun','Times New Roman',serif",
+  heiti:    "'黑体','SimHei',Arial,sans-serif",
+};
+
+async function buildWordHtml(md){
+  await mjReady;
+
+  const fontKey = document.getElementById('word-font').value;
+  const fontFamily = FONT_STACKS[fontKey] || FONT_STACKS.calibri;
+
+  const wordStyles = `
+    body{font-family:${fontFamily};font-size:11pt;color:#000;line-height:1.6;margin:0;padding:0}
+    h1{font-size:18pt;font-weight:bold;color:#1F3864;margin:18pt 0 6pt;border-bottom:1pt solid #ccc;padding-bottom:3pt}
+    h2{font-size:14pt;font-weight:bold;color:#2E5596;margin:14pt 0 4pt}
+    h3{font-size:12pt;font-weight:bold;color:#375623;margin:10pt 0 3pt}
+    h4{font-size:11pt;font-weight:bold;margin:8pt 0 2pt}
+    p{margin:4pt 0}
+    ul,ol{margin:4pt 0;padding-left:18pt}
+    li{margin:2pt 0}
+    code{font-family:'Courier New',monospace;font-size:9pt;background:#f3f4f6;padding:1px 4px}
+    pre{font-family:'Courier New',monospace;font-size:9pt;background:#f8f8f6;border:1pt solid #ddd;padding:8pt 10pt;margin:6pt 0}
+    blockquote{border-left:3pt solid #ccc;margin:6pt 0;padding:2pt 0 2pt 10pt;color:#555;font-style:italic}
+    hr{border:none;border-top:1pt solid #ccc;margin:10pt 0}
+  `;
+
+  let htmlBody = resolveCodeMath(marked.parse(resolveMathCodeBlocks(md)));
+
+  // ── Try MathML path (Word 2016+ pastes as native editable equation) ──
+  if(typeof MathJax.tex2mml === 'function'){
+    // Display math: <div class="math-display">\[latex\]</div>
+    htmlBody = htmlBody.replace(/<div class="math-display">\\\[([\s\S]*?)\\\]<\/div>/g, (_, latex)=>{
+      try{
+        const mml = MathJax.tex2mml(latex.trim(), {display:true});
+        return `<p style="text-align:center;margin:10pt 0">${mml}</p>`;
+      }catch(e){ return `<p><i>[公式: ${latex}]</i></p>`; }
+    });
+    // Inline math: use <sub>/<sup> so Word/Docs treat it as native character formatting
+    htmlBody = htmlBody.replace(/<span class="math-inline">\\\(([\s\S]*?)\\\)<\/span>/g, (_, latex)=>{
+      return latexToHtmlSimple(latex.trim()) || `<i>${latex}</i>`;
+    });
+
+  // ── Fallback: SVG image (older Word / MathML unavailable) ──
+  }else{
+    const mathTokens=[];
+    const lexed=marked.lexer(md);
+    function collectMath(tokens){
+      for(const t of tokens||[]){
+        if(t.type==='mathBlock'||t.type==='mathInline') mathTokens.push({math:t.math,disp:t.type==='mathBlock'});
+        if(t.tokens) collectMath(t.tokens);
+        if(t.items)  t.items.forEach(i=>collectMath(i.tokens||[]));
+      }
+    }
+    collectMath(lexed);
+    await Promise.all(mathTokens.map(m=>latexToSvgStr(m.math,m.disp)));
+
+    htmlBody = await replaceAsync(htmlBody, /<div class="math-display">\\\[([\s\S]*?)\\\]<\/div>/g, async (_,latex)=>{
+      const r=await latexToSvgStr(latex.trim(),true);
+      if(!r) return `<p><i>${latex}</i></p>`;
+      const b64=btoa(unescape(encodeURIComponent(r.str)));
+      return `<p style="text-align:center;margin:10pt 0"><img src="data:image/svg+xml;base64,${b64}" width="${Math.round(r.wPx*.75)}" height="${Math.round(r.hPx*.75)}" style="display:inline-block;vertical-align:middle"/></p>`;
+    });
+    htmlBody = htmlBody.replace(/<span class="math-inline">\\\(([\s\S]*?)\\\)<\/span>/g, (_,latex)=>{
+      return latexToHtmlSimple(latex.trim()) || `<i>${latex}</i>`;
+    });
+  }
+
+  htmlBody = inlineCodeStyles(htmlBody);
+  return `<!DOCTYPE html><html><head><meta charset="UTF-8"><style>${wordStyles}</style></head><body>${htmlBody}</body></html>`;
+}
+
+// Async replace helper
+async function replaceAsync(str, regex, asyncFn){
+  const promises=[];
+  str.replace(regex, (match,...args)=>{ promises.push(asyncFn(match,...args)); return match; });
+  const results = await Promise.all(promises);
+  let i=0;
+  return str.replace(regex, ()=>results[i++]);
+}
+
+// ─── LATEX → HTML (Google Docs mode) ──────────────────────────
+// Converts LaTeX to HTML using <sub>/<sup> + Unicode symbols.
+function latexToHtmlSimple(tex){
+  if(!tex) return '';
+  const SYMS={
+    // Greek lowercase
+    alpha:'α',beta:'β',gamma:'γ',delta:'δ',epsilon:'ε',varepsilon:'ε',zeta:'ζ',
+    eta:'η',theta:'θ',vartheta:'ϑ',iota:'ι',kappa:'κ',lambda:'λ',mu:'μ',nu:'ν',
+    xi:'ξ',pi:'π',varpi:'ϖ',rho:'ρ',varrho:'ϱ',sigma:'σ',varsigma:'ς',tau:'τ',
+    upsilon:'υ',phi:'φ',varphi:'φ',chi:'χ',psi:'ψ',omega:'ω',
+    // Greek uppercase
+    Gamma:'Γ',Delta:'Δ',Theta:'Θ',Lambda:'Λ',Xi:'Ξ',Pi:'Π',Sigma:'Σ',
+    Upsilon:'Υ',Phi:'Φ',Psi:'Ψ',Omega:'Ω',
+    // Operators & relations
+    times:'×',div:'÷',pm:'±',mp:'∓',cdot:'·',circ:'∘',bullet:'•',
+    leq:'≤',geq:'≥',neq:'≠',approx:'≈',equiv:'≡',sim:'∼',simeq:'≃',cong:'≅',
+    ll:'≪',gg:'≫',propto:'∝',
+    // Sets
+    subset:'⊂',supset:'⊃',subseteq:'⊆',supseteq:'⊇',in:'∈',notin:'∉',
+    cup:'∪',cap:'∩',setminus:'∖',emptyset:'∅',
+    // Misc math
+    infty:'∞',partial:'∂',nabla:'∇',forall:'∀',exists:'∃',nexists:'∄',
+    neg:'¬',wedge:'∧',vee:'∨',oplus:'⊕',otimes:'⊗',
+    // Arrows
+    rightarrow:'→',leftarrow:'←',leftrightarrow:'↔',uparrow:'↑',downarrow:'↓',
+    Rightarrow:'⇒',Leftarrow:'⇐',Leftrightarrow:'⇔',to:'→',gets:'←',mapsto:'↦',
+    // Big operators
+    sum:'∑',prod:'∏',int:'∫',iint:'∬',iiint:'∭',oint:'∮',
+    // Dots & misc
+    cdots:'⋯',ldots:'…',vdots:'⋮',ddots:'⋱',
+    langle:'⟨',rangle:'⟩',lfloor:'⌊',rfloor:'⌋',lceil:'⌈',rceil:'⌉',
+    mid:'|',vert:'|',quad:' ',qquad:'  ',
+    // Named functions (keep as text)
+    lim:'lim',log:'log',ln:'ln',exp:'exp',sin:'sin',cos:'cos',tan:'tan',
+    max:'max',min:'min',inf:'inf',sup:'sup',det:'det',dim:'dim',ker:'ker',arg:'arg',
+    // Ignore these layout commands
+    left:'',right:'',limits:'',nolimits:'',displaystyle:'',textstyle:'',
+    scriptstyle:'',scriptscriptstyle:'',
+  };
+  let i=0; const L=tex.length;
+  function skipWS(){ while(i<L&&tex[i]===' ')i++; }
+  function parseArg(){
+    skipWS();
+    if(i>=L) return '';
+    if(tex[i]==='{'){i++;return parseUntil('}');}
+    if(tex[i]==='\\'){return parseToken();}
+    return tex[i++];
+  }
+  function parseUntil(end){
+    let out='';
+    while(i<L&&tex[i]!==end) out+=parseToken();
+    if(i<L)i++;
+    return out;
+  }
+  function parseToken(){
+    if(i>=L) return '';
+    const c=tex[i];
+    if(c==='\\'){
+      i++;
+      if(i>=L) return '\\';
+      if(!/[a-zA-Z]/.test(tex[i])){
+        const ch=tex[i++];
+        if(' ,.;:!'.includes(ch)) return ' ';
+        if(ch==='{') return '{';
+        if(ch==='}') return '}';
+        if(ch==='\\') return ' ';
+        if(ch==='|') return '‖';
+        if(ch==='-') return '−';
+        return ch;
+      }
+      let cmd='';
+      while(i<L&&/[a-zA-Z*]/.test(tex[i]))cmd+=tex[i++];
+      if(cmd==='frac'||cmd==='dfrac'||cmd==='tfrac'){
+        const num=parseArg(),den=parseArg();return `(${num})/(${den})`;
+      }
+      if(cmd==='sqrt'){
+        skipWS();let nr='';
+        if(i<L&&tex[i]==='['){i++;while(i<L&&tex[i]!==']')nr+=tex[i++];if(i<L)i++;}
+        const arg=parseArg();return nr?`<sup>${nr}</sup>√(${arg})`:`√(${arg})`;
+      }
+      if(['text','mathrm','mathbf','mathit','mathsf','mathtt','mathbb','mathcal',
+          'boldsymbol','operatorname','mbox','hbox','rm','bf','it'].includes(cmd))
+        return parseArg();
+      if(['overline','underline','hat','tilde','bar','dot','ddot','vec',
+          'widehat','widetilde','acute','grave','breve','check'].includes(cmd))
+        return parseArg();
+      if(['underbrace','overbrace','underset','overset'].includes(cmd)){
+        parseArg();return parseArg();
+      }
+      if(cmd==='hspace'||cmd==='vspace'){parseArg();return ' ';}
+      if(cmd==='begin'||cmd==='end'){parseArg();return '';}
+      if(cmd==='nonumber'||cmd==='notag') return '';
+      if(cmd==='label'||cmd==='tag'||cmd==='ref'){parseArg();return '';}
+      if(cmd==='binom'){const a=parseArg(),b=parseArg();return `C(${a},${b})`;}
+      if(cmd==='not'){
+        const t=parseToken();
+        const neg={'=':'≠','<':'≮','>':'≯','∈':'∉','⊂':'⊄','∼':'≁'};
+        return neg[t]??'¬'+t;
+      }
+      return SYMS[cmd]??cmd;
+    }
+    if(c==='_'){i++;const a=parseArg();return `<sub>${a}</sub>`;}
+    if(c==='^'){i++;const a=parseArg();return `<sup>${a}</sup>`;}
+    if(c==='{'){i++;return parseUntil('}');}
+    if(c==='}'){i++;return '';}
+    if(c==='&'){i++;return ' ';}
+    if(c==='~'){i++;return '\u00a0';}
+    if(c==='-'){i++;return '−';}
+    i++;return c;
+  }
+  let result='';
+  while(i<L) result+=parseToken();
+  return result.replace(/ {2,}/g,' ').trim();
+}
+
+// ─── BUILD GOOGLE DOCS HTML ────────────────────────────────────
+async function buildDocsHtml(md){
+  const fontKey=document.getElementById('word-font').value;
+  const fontFamily=FONT_STACKS[fontKey]||FONT_STACKS.calibri;
+  const docsStyles=`
+    body{font-family:${fontFamily};font-size:11pt;color:#000;line-height:1.6;margin:0;padding:0}
+    h1{font-size:18pt;font-weight:bold;color:#1F3864;margin:18pt 0 6pt;border-bottom:1pt solid #ccc;padding-bottom:3pt}
+    h2{font-size:14pt;font-weight:bold;color:#2E5596;margin:14pt 0 4pt}
+    h3{font-size:12pt;font-weight:bold;color:#375623;margin:10pt 0 3pt}
+    h4{font-size:11pt;font-weight:bold;margin:8pt 0 2pt}
+    p{margin:4pt 0}
+    ul,ol{margin:4pt 0;padding-left:18pt}
+    li{margin:2pt 0}
+    code{font-family:'Courier New',monospace;font-size:9pt;background:#f3f4f6;padding:1px 4px}
+    pre{font-family:'Courier New',monospace;font-size:9pt;background:#f8f8f6;border:1pt solid #ddd;padding:8pt 10pt;margin:6pt 0}
+    blockquote{border-left:3pt solid #ccc;margin:6pt 0;padding:2pt 0 2pt 10pt;color:#555;font-style:italic}
+    hr{border:none;border-top:1pt solid #ccc;margin:10pt 0}
+  `;
+  let htmlBody=resolveCodeMath(marked.parse(resolveMathCodeBlocks(md)));
+  htmlBody=htmlBody.replace(/<div class="math-display">\\\[([\s\S]*?)\\\]<\/div>/g,(_,latex)=>
+    `<p style="text-align:center;margin:10pt 0">${latexToHtmlSimple(latex.trim())}</p>`
+  );
+  htmlBody=htmlBody.replace(/<span class="math-inline">\\\(([\s\S]*?)\\\)<\/span>/g,(_,latex)=>
+    latexToHtmlSimple(latex.trim())
+  );
+  htmlBody = inlineCodeStyles(htmlBody);
+  return `<!DOCTYPE html><html><head><meta charset="UTF-8"><style>${docsStyles}</style></head><body>${htmlBody}</body></html>`;
+}
+
+// ─── COPY TARGET ───────────────────────────────────────────────
+const copyBtn = document.getElementById('copy-btn');
+const statusEl= document.getElementById('status');
+let copyTarget='word';
+
+const _COPY_ICON=`<svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4.5" y="4.5" width="8" height="8" rx="1.5"/><path d="M9.5 4.5V3A1.5 1.5 0 0 0 8 1.5H3A1.5 1.5 0 0 0 1.5 3v5A1.5 1.5 0 0 0 3 9.5h1.5"/></svg>`;
+
+function restoreCopyBtn(){
+  copyBtn.classList.remove('success');
+  copyBtn.innerHTML=_COPY_ICON+'&nbsp;'+(copyTarget==='docs'?'复制到 Docs':'复制到 Word');
+  copyBtn.disabled=false;
+}
+window.setCopyTarget=function(t){
+  copyTarget=t;
+  document.getElementById('ct-word').classList.toggle('active',t==='word');
+  document.getElementById('ct-docs').classList.toggle('active',t==='docs');
+  if(!copyBtn.disabled) restoreCopyBtn();
+};
+
+function setStatus(msg,type){ statusEl.textContent=msg; statusEl.className='status'+(type?' '+type:''); }
+
+// ─── COPY BUTTON ───────────────────────────────────────────────
+copyBtn.addEventListener('click', async()=>{
+  const md=inp.value.trim();
+  if(!md){ setStatus('请先输入 Markdown 内容','err'); return; }
+
+  copyBtn.disabled=true;
+  copyBtn.innerHTML='<div class="spin"></div>&nbsp;处理中…';
+  setStatus(copyTarget==='docs'?'正在转换公式…':'正在渲染公式…');
+
+  try{
+    const html=copyTarget==='docs' ? await buildDocsHtml(md) : await buildWordHtml(md);
+    const blob=new Blob([html],{type:'text/html'});
+    await navigator.clipboard.write([new ClipboardItem({'text/html':blob})]);
+
+    copyBtn.classList.add('success');
+    copyBtn.innerHTML=`<svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="2,7 5.5,10.5 12,4"/></svg>&nbsp;已复制！`;
+    setStatus('✓ 已复制，粘贴到'+(copyTarget==='docs'?'Google Docs':'Word')+'即可','ok');
+    setTimeout(restoreCopyBtn,2500);
+
+  }catch(e){
+    console.error(e);
+    setStatus('复制失败：'+(e.message||String(e)),'err');
+    restoreCopyBtn();
+  }
+});
+
+// ─── ARCHIVE ───────────────────────────────────────────────────
+let archives=[], folders=[], folderCollapsed={}, activeId=null, bookmarks=[];
+
+// ─── LOCALSTORAGE PERSISTENCE ───────────────────────────────────
+const LS_KEY = 'ai2doc_data';
+function saveToStorage(){
+  try{
+    localStorage.setItem(LS_KEY, JSON.stringify({
+      archives, folders, folderCollapsed, activeId,
+      currentMd: inp.value,
+      currentFilename: document.getElementById('filename').value,
+    }));
+  }catch(e){ console.warn('[storage] save failed', e); }
+}
+function loadFromStorage(){
+  try{
+    const raw = localStorage.getItem(LS_KEY);
+    if(!raw) return;
+    const data = JSON.parse(raw);
+    if(Array.isArray(data.archives))  archives = data.archives;
+    if(Array.isArray(data.folders))   folders  = data.folders;
+    if(data.folderCollapsed && typeof data.folderCollapsed === 'object') folderCollapsed = data.folderCollapsed;
+    if(data.activeId) activeId = data.activeId;
+    if(typeof data.currentMd === 'string') inp.value = data.currentMd;
+    if(typeof data.currentFilename === 'string') document.getElementById('filename').value = data.currentFilename;
+    if(activeId){ const a=archives.find(x=>x.id===activeId); if(a) bookmarks=(a.bookmarks||[]).map(b=>({...b})); }
+  }catch(e){ console.warn('[storage] load failed', e); }
+}
+
+function timeAgo(d){ const s=(Date.now()-new Date(d))/1000; if(s<60) return '刚刚'; if(s<3600) return Math.floor(s/60)+'分钟前'; if(s<86400) return Math.floor(s/3600)+'小时前'; return Math.floor(s/86400)+'天前'; }
+function esc(s){ return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+const FOLDER_ICON_SVG = `<svg width="11" height="10" viewBox="0 0 14 13" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M1 3h5l1.5 2H13v6H1V3z"/></svg>`;
+
+function archItemHtml(a){
+  const hf = folders.length > 0;
+  return `<div class="arch-item${a.id===activeId?' active':''}${hf?' has-folders':''}" draggable="true" data-id="${a.id}" onclick="loadArch('${a.id}')">
+    <div class="arch-name">${esc(a.name)}</div>
+    <div class="arch-meta">${timeAgo(a.date)} · ${a.md.length.toLocaleString()} 字符</div>
+    ${hf?`<button class="arch-move" title="移动到文件夹" onclick="openMoveMenu('${a.id}',event)">${FOLDER_ICON_SVG}</button>`:''}
+    <button class="arch-del" title="删除" onclick="delArch('${a.id}',event)">
+      <svg width="9" height="9" viewBox="0 0 9 9" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><line x1="1" y1="1" x2="8" y2="8"/><line x1="8" y1="1" x2="1" y2="8"/></svg>
+    </button>
+  </div>`;
+}
+
+function renderArchive(){
+  const list=document.getElementById('arch-list');
+  document.getElementById('arch-count').textContent=archives.length;
+  saveToStorage();
+
+  if(!archives.length && !folders.length){
+    list.innerHTML='<div class="arch-empty">存档后，记录将在此显示</div>';
+    return;
+  }
+
+  if(!folders.length){
+    list.innerHTML = archives.length ? archives.map(archItemHtml).join('') : '<div class="arch-empty">存档后，记录将在此显示</div>';
+    return;
+  }
+
+  let html='';
+  folders.forEach(f=>{
+    const isOpen=!folderCollapsed[f.id];
+    const children=archives.filter(a=>a.folderId===f.id);
+    html+=`<div class="folder-item${isOpen?' open':''}" data-fid="${f.id}">
+      <div class="folder-header" onclick="toggleFolder('${f.id}')">
+        <span class="folder-chevron"><svg width="8" height="8" viewBox="0 0 8 8" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="2,1 6,4 2,7"/></svg></span>
+        <span class="folder-icon"><svg width="13" height="11" viewBox="0 0 14 13" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M1 3h5l1.5 2H13v6H1V3z"/></svg></span>
+        <span class="folder-name" ondblclick="startRenameFolder('${f.id}',event)">${esc(f.name)}</span>
+        <div class="folder-actions">
+          <button class="folder-btn" title="重命名" onclick="startRenameFolder('${f.id}',event)">
+            <svg width="9" height="9" viewBox="0 0 9 9" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M1.5 7.5l.7-.25 2.8-2.8-.45-.45-2.8 2.8-.25.7z"/><line x1="4.3" y1="1.7" x2="7.3" y2="4.7"/></svg>
+          </button>
+          <button class="folder-btn del" title="删除文件夹" onclick="delFolder('${f.id}',event)">
+            <svg width="9" height="9" viewBox="0 0 9 9" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><line x1="1" y1="1" x2="8" y2="8"/><line x1="8" y1="1" x2="1" y2="8"/></svg>
+          </button>
+        </div>
+      </div>
+      <div class="folder-children">
+        ${children.length ? children.map(archItemHtml).join('') : '<div class="folder-empty-hint">空文件夹</div>'}
+      </div>
+    </div>`;
+  });
+
+  const uncat=archives.filter(a=>!a.folderId);
+  if(uncat.length){
+    html+=`<div class="uncategorized-label">未分类</div>`;
+    html+=uncat.map(archItemHtml).join('');
+  }
+
+  if(!html) html='<div class="arch-empty">存档后，记录将在此显示</div>';
+  list.innerHTML=html;
+}
+
+// ─── FOLDER MANAGEMENT ─────────────────────────────────────────
+window.toggleFolder=function(fid){
+  folderCollapsed[fid]=!folderCollapsed[fid];
+  renderArchive();
+};
+
+window.startRenameFolder=function(fid,e){
+  e.stopPropagation();
+  const folderEl=document.querySelector(`.folder-item[data-fid="${fid}"]`);
+  if(!folderEl) return;
+  const nameSpan=folderEl.querySelector('.folder-name');
+  const f=folders.find(x=>x.id===fid);
+  if(!f||!nameSpan) return;
+  const input=document.createElement('input');
+  input.className='folder-name-input';
+  input.value=f.name;
+  nameSpan.replaceWith(input);
+  input.focus(); input.select();
+  const commit=()=>{ f.name=input.value.trim()||f.name; renderArchive(); };
+  input.addEventListener('blur',commit);
+  input.addEventListener('keydown',ev=>{
+    if(ev.key==='Enter'){ ev.preventDefault(); input.blur(); }
+    if(ev.key==='Escape'){ renderArchive(); }
+  });
+};
+
+window.delFolder=function(fid,e){
+  e.stopPropagation();
+  archives.forEach(a=>{ if(a.folderId===fid) a.folderId=null; });
+  folders=folders.filter(x=>x.id!==fid);
+  delete folderCollapsed[fid];
+  renderArchive();
+};
+
+document.getElementById('new-folder-btn').addEventListener('click',()=>{
+  const id='f'+Date.now();
+  folders.unshift({id,name:'新建文件夹'});
+  folderCollapsed[id]=false;
+  renderArchive();
+  window.startRenameFolder(id,{stopPropagation:()=>{}});
+});
+
+// ─── MOVE TO FOLDER ────────────────────────────────────────────
+let _activeDd=null;
+function _closeDd(){ if(_activeDd){ _activeDd.remove(); _activeDd=null; } }
+
+window.openMoveMenu=function(archId,e){
+  e.stopPropagation();
+  _closeDd();
+  const a=archives.find(x=>x.id===archId); if(!a) return;
+  const btn=e.currentTarget;
+  const rect=btn.getBoundingClientRect();
+
+  const dd=document.createElement('div');
+  dd.className='move-dropdown';
+
+  if(a.folderId){
+    const rem=document.createElement('div');
+    rem.className='move-dd-item remove-item';
+    rem.innerHTML=`<svg width="9" height="9" viewBox="0 0 9 9" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><line x1="1" y1="1" x2="8" y2="8"/><line x1="8" y1="1" x2="1" y2="8"/></svg> 移出文件夹`;
+    rem.addEventListener('click',()=>{ a.folderId=null; _closeDd(); renderArchive(); setStatus('已移出文件夹','ok'); });
+    dd.appendChild(rem);
+    const sep=document.createElement('div'); sep.className='move-dd-sep'; dd.appendChild(sep);
+  }
+
+  if(folders.length){
+    folders.forEach(f=>{
+      const item=document.createElement('div');
+      item.className='move-dd-item'+(a.folderId===f.id?' active':'');
+      item.innerHTML=`${FOLDER_ICON_SVG} ${esc(f.name)}`;
+      item.addEventListener('click',()=>{ a.folderId=f.id; _closeDd(); renderArchive(); setStatus('已移入：'+f.name,'ok'); });
+      dd.appendChild(item);
+    });
+  } else {
+    const empty=document.createElement('div');
+    empty.className='move-dd-item';
+    empty.style.cssText='color:var(--text3);cursor:default';
+    empty.textContent='暂无文件夹';
+    dd.appendChild(empty);
+  }
+
+  document.body.appendChild(dd);
+  const ddW=dd.offsetWidth, ddH=dd.offsetHeight;
+  dd.style.top=Math.min(rect.bottom+4, window.innerHeight-ddH-8)+'px';
+  dd.style.left=Math.max(4, Math.min(rect.left-ddW+rect.width, window.innerWidth-ddW-8))+'px';
+  _activeDd=dd;
+  setTimeout(()=>document.addEventListener('click',_closeDd,{once:true}),0);
+};
+
+// ─── ARCHIVE CRUD ──────────────────────────────────────────────
+window.loadArch = function(id){
+  const a=archives.find(x=>x.id===id); if(!a) return;
+  pvEdited=false; activeId=id; inp.value=a.md;
+  document.getElementById('filename').value=a.name;
+  bookmarks=(a.bookmarks||[]).map(b=>({...b}));
+  svgCache.clear(); renderPreview(); renderArchive(); renderBookmarkSidebar();
+  setStatus('已打开：'+a.name,'ok');
+  saveToStorage();
+};
+window.delArch = function(id,e){
+  e.stopPropagation();
+  archives=archives.filter(x=>x.id!==id);
+  if(activeId===id) activeId=null;
+  renderArchive();
+};
+function defaultTitleFromMd(md){
+  // Extract first non-empty line, strip Markdown syntax, take first sentence (up to 30 chars)
+  const line = md.split('\n').map(l=>l.trim()).find(l=>l.length>0) || '';
+  const clean = line.replace(/^#{1,6}\s+/, '').replace(/[*_`~>\-]/g,'').trim();
+  const sentence = clean.split(/[。！？!?.]/)[0].trim();
+  return (sentence.slice(0,30) || '未命名');
+}
+document.getElementById('save-btn').addEventListener('click',()=>{
+  if(pvEdited){ clearTimeout(pvSyncTimer); syncPreviewNow(); }
+  const md=inp.value.trim();
+  if(!md){ setStatus('内容为空，无法存档','err'); return; }
+  const filenameEl = document.getElementById('filename');
+  const userTyped  = filenameEl.value.trim();
+  const name = (userTyped && userTyped !== 'document') ? userTyped : defaultTitleFromMd(md);
+  if(activeId){
+    const a=archives.find(x=>x.id===activeId);
+    if(a){ a.md=md; a.name=name; a.date=new Date().toISOString(); a.bookmarks=[...bookmarks]; renderArchive(); setStatus('已更新存档：'+name,'ok'); return; }
+  }
+  activeId='a'+Date.now();
+  archives.unshift({id:activeId,name,md,date:new Date().toISOString(),bookmarks:[...bookmarks]});
+  renderArchive();
+  setStatus('已存档：'+name,'ok');
+});
+document.getElementById('filename').addEventListener('keydown',e=>{
+  if(e.key!=='Enter') return;
+  e.preventDefault();
+  if(!activeId) return;
+  const a=archives.find(x=>x.id===activeId); if(!a) return;
+  const newName=e.currentTarget.value.trim(); if(!newName) return;
+  a.name=newName; a.date=new Date().toISOString();
+  renderArchive();
+  setStatus('已重命名：'+newName,'ok');
+});
+document.getElementById('new-btn').addEventListener('click',()=>{
+  pvEdited=false;
+  activeId='a'+Date.now();
+  archives.unshift({id:activeId,name:'document',md:'',date:new Date().toISOString(),bookmarks:[]});
+  inp.value=''; document.getElementById('filename').value='document';
+  bookmarks=[]; pv.innerHTML=''; svgCache.clear(); setStatus('');
+  renderArchive(); renderBookmarkSidebar(); inp.focus();
+});
+
+// ─── SIDEBAR COLLAPSE ──────────────────────────────────────────
+(function(){
+  const sidebar   = document.querySelector('.sidebar');
+  const collapseBtn = document.getElementById('sb-collapse-btn');
+  const expandFab   = document.getElementById('sb-expand-fab');
+  collapseBtn.addEventListener('click', ()=>{
+    sidebar.classList.add('collapsed');
+    expandFab.classList.add('visible');
+  });
+  expandFab.addEventListener('click', ()=>{
+    sidebar.classList.remove('collapsed');
+    expandFab.classList.remove('visible');
+  });
+})();
+
+// ─── MISC ──────────────────────────────────────────────────────
+document.getElementById('btn-sample').addEventListener('click',()=>{ pvEdited=false; inp.value=SAMPLE; svgCache.clear(); renderPreview(); });
+document.getElementById('btn-clear').addEventListener('click',()=>{ pvEdited=false; inp.value=''; pv.innerHTML=''; svgCache.clear(); setStatus(''); saveToStorage(); });
+(function(){
+  function setLatexCollapsed(collapsed){
+    latexCollapsed=collapsed;
+    const lp=document.getElementById('pane-latex');
+    const div2=document.getElementById('divider2');
+    const exTab=document.getElementById('latex-expand-tab');
+    if(collapsed){
+      lp.classList.add('lx-collapsed');
+      div2.style.display='none';
+      if(exTab) exTab.classList.add('visible');
+    } else {
+      lp.classList.remove('lx-collapsed');
+      div2.style.display='flex';
+      if(exTab) exTab.classList.remove('visible');
+    }
+  }
+  document.getElementById('latex-collapse-btn').addEventListener('click',()=>setLatexCollapsed(true));
+  document.getElementById('latex-expand-tab').addEventListener('click',()=>setLatexCollapsed(false));
+})();
+
+document.getElementById('btn-copy-latex').addEventListener('click',()=>{
+  const el=document.getElementById('latex-output');
+  navigator.clipboard.writeText(el.value).then(()=>setStatus('已复制 LaTeX 源码','ok')).catch(()=>{
+    el.select(); document.execCommand('copy'); setStatus('已复制 LaTeX 源码','ok');
+  });
+});
+loadFromStorage();
+renderArchive();
+renderPreview();
+renderLatex();
+
+// ─── MARKDOWN → LATEX ──────────────────────────────────────────
+let _latexTimer=null;
+
+function mdToLatex(md){
+  function protect(store, v){ const k='\x00'+store.length+'\x00'; store.push(v); return k; }
+  function restore(s, store){ store.forEach((v,i)=>{ s=s.split('\x00'+i+'\x00').join(v); }); return s; }
+
+  function escTex(s){
+    return s.replace(/[\\&%$#_{}~^]/g, c=>({'\\':'\\textbackslash{}','&':'\\&','%':'\\%','$':'\\$',
+      '#':'\\#','_':'\\_','{':'\\{','}':'\\}','~':'\\textasciitilde{}','^':'\\^{}'}[c]));
+  }
+
+  function inlineMd(s){
+    const store=[];
+    // protect math
+    s=s.replace(/\$\$([\s\S]+?)\$\$/g,(_,m)=>protect(store,'\\['+m+'\\]'));
+    s=s.replace(/\\\[([\s\S]+?)\\\]/g,(_,m)=>protect(store,'\\['+m+'\\]'));
+    s=s.replace(/\\\((.+?)\\\)/g,(_,m)=>protect(store,'\\('+m+'\\)'));
+    s=s.replace(/\$([^\$\n]+?)\$/g,(_,m)=>protect(store,'$'+m+'$'));
+    // protect inline code
+    s=s.replace(/`([^`]+)`/g,(_,c)=>protect(store,'\\texttt{'+escTex(c)+'}'));
+    // protect links
+    s=s.replace(/\[([^\]]+)\]\(([^)]+)\)/g,(_,tx,url)=>protect(store,'\\href{'+url+'}{'+tx+'}'));
+    // protect bold+italic
+    s=s.replace(/\*\*\*(.+?)\*\*\*/g,(_,c)=>protect(store,'\\textbf{\\textit{'+c+'}}'));
+    s=s.replace(/\*\*(.+?)\*\*/g,(_,c)=>protect(store,'\\textbf{'+c+'}'));
+    s=s.replace(/__(.+?)__/g,(_,c)=>protect(store,'\\textbf{'+c+'}'));
+    s=s.replace(/(?<!\*)\*(?!\*)(.+?)(?<!\*)\*(?!\*)/g,(_,c)=>protect(store,'\\textit{'+c+'}'));
+    s=s.replace(/(?<!_)_(?!_)(.+?)(?<!_)_(?!_)/g,(_,c)=>protect(store,'\\textit{'+c+'}'));
+    // escape remaining text
+    s=escTex(s);
+    return restore(s, store);
+  }
+
+  const lines=md.split('\n');
+  const out=[];
+  const listStack=[];
+  let i=0;
+
+  function closeList(){
+    while(listStack.length) out.push(listStack.pop()==='ul'?'\\end{itemize}':'\\end{enumerate}');
+  }
+
+  while(i<lines.length){
+    const line=lines[i];
+    if(/^```/.test(line)){
+      closeList();
+      const buf=[]; i++;
+      while(i<lines.length&&!/^```\s*$/.test(lines[i])){ buf.push(lines[i]); i++; }
+      out.push('\\begin{verbatim}\n'+buf.join('\n')+'\n\\end{verbatim}');
+      i++; continue;
+    }
+    if(/^\s*$/.test(line)){ closeList(); out.push(''); i++; continue; }
+    const hm=line.match(/^(#{1,6})\s+(.*)/);
+    if(hm){
+      closeList();
+      const cmds=['section','subsection','subsubsection','paragraph','subparagraph','subparagraph'];
+      out.push('\\'+cmds[hm[1].length-1]+'{'+inlineMd(hm[2])+'}'); i++; continue;
+    }
+    if(/^[-*_]{3,}\s*$/.test(line)){ closeList(); out.push('\\medskip\\hrule\\medskip'); i++; continue; }
+    if(line.startsWith('>')){
+      closeList(); out.push('\\begin{quote}');
+      while(i<lines.length&&lines[i].startsWith('>')){ out.push(inlineMd(lines[i].replace(/^>\s?/,''))); i++; }
+      out.push('\\end{quote}'); continue;
+    }
+    if(line.includes('|')&&lines[i+1]&&/^\|?[-:| ]+\|$/.test(lines[i+1].trim())){
+      closeList();
+      const cols=line.split('|').filter((_,j,a)=>j>0&&j<a.length-1).map(c=>c.trim());
+      const aligns=(lines[i+1]||'').split('|').filter((_,j,a)=>j>0&&j<a.length-1)
+        .map(c=>{ c=c.trim(); return c.startsWith(':')&&c.endsWith(':')? 'c': c.endsWith(':')? 'r':'l'; });
+      const colSpec=aligns.length?aligns.join('|'):cols.map(()=>'l').join('|');
+      out.push('\\begin{tabular}{|'+colSpec+'|}'); out.push('\\hline');
+      out.push(cols.map(c=>inlineMd(c)).join(' & ')+' \\\\'); out.push('\\hline');
+      i+=2;
+      while(i<lines.length&&lines[i].includes('|')&&!/^\|?[-:| ]+\|$/.test(lines[i].trim())){
+        const rc=lines[i].split('|').filter((_,j,a)=>j>0&&j<a.length-1).map(c=>c.trim());
+        out.push(rc.map(c=>inlineMd(c)).join(' & ')+' \\\\'); out.push('\\hline'); i++;
+      }
+      out.push('\\end{tabular}'); continue;
+    }
+    const ulm=line.match(/^(\s*)[-*+]\s+(.*)/);
+    if(ulm){
+      if(!listStack.length||listStack[listStack.length-1]!=='ul'){
+        if(listStack.length&&listStack[listStack.length-1]==='ol'){ out.push('\\end{enumerate}'); listStack.pop(); }
+        out.push('\\begin{itemize}'); listStack.push('ul');
+      }
+      out.push('  \\item '+inlineMd(ulm[2])); i++; continue;
+    }
+    const olm=line.match(/^(\s*)\d+[.)]\s+(.*)/);
+    if(olm){
+      if(!listStack.length||listStack[listStack.length-1]!=='ol'){
+        if(listStack.length&&listStack[listStack.length-1]==='ul'){ out.push('\\end{itemize}'); listStack.pop(); }
+        out.push('\\begin{enumerate}'); listStack.push('ol');
+      }
+      out.push('  \\item '+inlineMd(olm[2])); i++; continue;
+    }
+    closeList();
+    out.push(inlineMd(line)); i++;
+  }
+  closeList();
+
+  return [
+    '\\documentclass[12pt]{article}',
+    '\\usepackage[utf8]{inputenc}',
+    '\\usepackage{amsmath}',
+    '\\usepackage{amssymb}',
+    '\\usepackage{hyperref}',
+    '\\usepackage{graphicx}',
+    '\\usepackage{booktabs}',
+    '\\usepackage{enumitem}',
+    '',
+    '\\begin{document}',
+    '',
+    out.join('\n'),
+    '',
+    '\\end{document}',
+  ].join('\n');
+}
+
+function renderLatex(){
+  const el=document.getElementById('latex-output'); if(!el) return;
+  el.value=mdToLatex(inp.value);
+}
+
+// ─── DRAG-AND-DROP: arch-item → folder ──────────────────────
+let _dragArchId=null;
+const archList=document.getElementById('arch-list');
+archList.addEventListener('dragstart',e=>{
+  const item=e.target.closest('.arch-item[data-id]'); if(!item) return;
+  _dragArchId=item.dataset.id;
+  item.classList.add('dragging');
+  e.dataTransfer.effectAllowed='move';
+});
+archList.addEventListener('dragend',e=>{
+  const item=e.target.closest('.arch-item'); if(item) item.classList.remove('dragging');
+  archList.querySelectorAll('.folder-item.drag-over').forEach(f=>f.classList.remove('drag-over'));
+  _dragArchId=null;
+});
+archList.addEventListener('dragover',e=>{
+  if(!_dragArchId) return;
+  const folder=e.target.closest('.folder-item'); if(!folder) return;
+  e.preventDefault(); e.dataTransfer.dropEffect='move';
+  archList.querySelectorAll('.folder-item.drag-over').forEach(f=>{ if(f!==folder) f.classList.remove('drag-over'); });
+  folder.classList.add('drag-over');
+});
+archList.addEventListener('dragleave',e=>{
+  const folder=e.target.closest('.folder-item'); if(!folder) return;
+  if(!folder.contains(e.relatedTarget)) folder.classList.remove('drag-over');
+});
+archList.addEventListener('drop',e=>{
+  if(!_dragArchId) return;
+  const folder=e.target.closest('.folder-item'); if(!folder) return;
+  e.preventDefault();
+  const fid=folder.dataset.fid;
+  const a=archives.find(x=>x.id===_dragArchId);
+  if(a && fid){ a.folderId=fid; const f=folders.find(x=>x.id===fid); renderArchive(); setStatus('已移入：'+(f?f.name:'文件夹'),'ok'); }
+  _dragArchId=null;
+});
+mjReady.then(()=>{ if(!pvEdited) renderPreview(); });
+
+// ─── BOOKMARK SYSTEM ────────────────────────────────────────────
+let _bmSelData = null;   // pending selection data when add dialog is open
+
+function genBmId(){ return 'bm' + Date.now() + Math.random().toString(36).slice(2,6); }
+
+// Build a position map: [{node, start}] and full concatenated text for all text nodes in #preview
+function buildBmPosMap(){
+  const posMap = [];
+  let full = '';
+  const walker = document.createTreeWalker(pv, NodeFilter.SHOW_TEXT, {
+    acceptNode(node){
+      let el = node.parentElement;
+      while(el && el !== pv){
+        const tag = el.tagName;
+        if(tag === 'SCRIPT' || tag === 'STYLE') return NodeFilter.FILTER_REJECT;
+        if(el.classList.contains('math-display') || el.classList.contains('math-inline')) return NodeFilter.FILTER_REJECT;
+        el = el.parentElement;
+      }
+      return NodeFilter.FILTER_ACCEPT;
+    }
+  });
+  let node;
+  while((node = walker.nextNode())){
+    posMap.push({node, start: full.length});
+    full += node.textContent;
+  }
+  return {posMap, full};
+}
+
+function findBmTextIdx(full, text, ctxBefore){
+  if(!text) return -1;
+  if(ctxBefore){
+    const idx = full.indexOf(ctxBefore + text);
+    if(idx >= 0) return idx + ctxBefore.length;
+  }
+  return full.indexOf(text);
+}
+
+// Apply a single bookmark mark by splitting text nodes (works across element boundaries)
+function applyOneBmMark(bm){
+  const {posMap, full} = buildBmPosMap();
+  const idx = findBmTextIdx(full, bm.text, bm.ctxBefore);
+  if(idx < 0) return;
+  const endIdx = idx + bm.text.length;
+
+  // Collect all text nodes that overlap [idx, endIdx]
+  const affected = posMap.filter(pm => {
+    const nEnd = pm.start + pm.node.textContent.length;
+    return !(nEnd <= idx || pm.start >= endIdx);
+  });
+
+  // Process in REVERSE order so splitting earlier nodes doesn't invalidate later references
+  for(let i = affected.length - 1; i >= 0; i--){
+    const {node, start: nStart} = affected[i];
+    const nodeText = node.textContent;
+    const localStart = Math.max(0, idx - nStart);
+    const localEnd   = Math.min(nodeText.length, endIdx - nStart);
+
+    const before = nodeText.slice(0, localStart);
+    const marked = nodeText.slice(localStart, localEnd);
+    const after  = nodeText.slice(localEnd);
+
+    const parent = node.parentNode;
+    if(!parent || !marked) continue;
+
+    const frag = document.createDocumentFragment();
+    if(before) frag.appendChild(document.createTextNode(before));
+
+    const span = document.createElement('span');
+    span.className = 'bm-mark';
+    span.dataset.bid = bm.id;
+    span.title = bm.name;
+    span.textContent = marked;
+    span.addEventListener('click', () => { highlightBmInSidebar(bm.id); });
+    frag.appendChild(span);
+
+    if(after) frag.appendChild(document.createTextNode(after));
+    parent.replaceChild(frag, node);
+  }
+}
+
+// Remove all .bm-mark spans and re-apply from the bookmarks array
+function restoreBookmarks(){
+  if(!bookmarks.length) return;
+  pv.querySelectorAll('.bm-mark').forEach(span => {
+    const frag = document.createDocumentFragment();
+    while(span.firstChild) frag.appendChild(span.firstChild);
+    if(span.parentNode) span.parentNode.replaceChild(frag, span);
+  });
+  try{ pv.normalize(); }catch(e){}
+  // Re-apply each bookmark with a fresh posMap each time (needed after DOM changes)
+  for(const bm of bookmarks) applyOneBmMark(bm);
+}
+
+function renderBookmarkSidebar(){
+  const list  = document.getElementById('bm-list');
+  const count = document.getElementById('bm-count');
+  count.textContent = bookmarks.length;
+  if(!bookmarks.length){
+    list.innerHTML = '<div class="bm-empty">选中预览文字后点击「书签」按钮</div>';
+    return;
+  }
+  list.innerHTML = bookmarks.map(bm => `
+    <div class="bm-item${bm.commentOpen ? ' comment-open' : ''}" data-bid="${esc(bm.id)}">
+      <div class="bm-item-head">
+        <span class="bm-name-label" onclick="scrollToBookmark('${esc(bm.id)}')" title="${esc(bm.name)}">${esc(bm.name)}</span>
+        ${bm.comment ? `<button class="bm-toggle-btn" onclick="toggleBmComment('${esc(bm.id)}')" title="显示/隐藏备注">
+          <svg width="9" height="9" viewBox="0 0 9 9" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1,3 4.5,6.5 8,3"/></svg>
+        </button>` : ''}
+        <button class="bm-del-btn" onclick="deleteBookmark('${esc(bm.id)}')" title="删除书签">
+          <svg width="8" height="8" viewBox="0 0 8 8" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><line x1="1" y1="1" x2="7" y2="7"/><line x1="7" y1="1" x2="1" y2="7"/></svg>
+        </button>
+      </div>
+      ${bm.comment ? `<div class="bm-comment-body">${esc(bm.comment)}</div>` : ''}
+    </div>
+  `).join('');
+}
+
+window.scrollToBookmark = function(id){
+  const mark = pv.querySelector(`.bm-mark[data-bid="${id}"]`);
+  if(mark){
+    mark.scrollIntoView({behavior:'smooth', block:'center'});
+    mark.style.outline = '2px solid var(--accent)';
+    mark.style.borderRadius = '3px';
+    setTimeout(() => { mark.style.outline = ''; mark.style.borderRadius = ''; }, 1600);
+  }
+};
+
+function highlightBmInSidebar(id){
+  const bmSidebar = document.getElementById('bm-sidebar');
+  if(bmSidebar.classList.contains('collapsed')){
+    bmSidebar.classList.remove('collapsed');
+    document.getElementById('bm-expand-fab').classList.remove('visible');
+  }
+  const item = document.querySelector(`.bm-item[data-bid="${id}"]`);
+  if(item){
+    item.scrollIntoView({behavior:'smooth', block:'nearest'});
+    item.style.background = 'var(--accent-lt)';
+    setTimeout(() => { item.style.background = ''; }, 1200);
+  }
+}
+
+window.toggleBmComment = function(id){
+  const bm = bookmarks.find(b => b.id === id);
+  if(bm){ bm.commentOpen = !bm.commentOpen; renderBookmarkSidebar(); }
+};
+
+window.deleteBookmark = function(id){
+  bookmarks = bookmarks.filter(b => b.id !== id);
+  pv.querySelectorAll(`.bm-mark[data-bid="${id}"]`).forEach(span => {
+    const frag = document.createDocumentFragment();
+    while(span.firstChild) frag.appendChild(span.firstChild);
+    if(span.parentNode) span.parentNode.replaceChild(frag, span);
+  });
+  try{ pv.normalize(); }catch(e){}
+  renderBookmarkSidebar();
+};
+
+// ─── BOOKMARK ADD DIALOG ────────────────────────────────────────
+const bmPanel      = document.getElementById('bm-add-panel');
+const bmNameInp    = document.getElementById('bm-name-inp');
+const bmCommentInp = document.getElementById('bm-comment-inp');
+
+function getSelectionData(){
+  const sel = window.getSelection();
+  if(!sel || sel.isCollapsed || !sel.rangeCount) return null;
+  const range = sel.getRangeAt(0);
+  if(!pv.contains(range.commonAncestorContainer)) return null;
+  const text = sel.toString().trim();
+  if(!text) return null;
+
+  const {posMap, full} = buildBmPosMap();
+  let selStart = -1;
+  for(const {node, start} of posMap){
+    if(node === range.startContainer){ selStart = start + range.startOffset; break; }
+  }
+  const ctxBefore = selStart > 0  ? full.slice(Math.max(0, selStart - 60), selStart) : '';
+  const ctxAfter  = selStart >= 0 ? full.slice(selStart + text.length, selStart + text.length + 60) : '';
+  return {text, ctxBefore, ctxAfter};
+}
+
+function openBmPanel(){
+  _bmSelData = getSelectionData();
+  if(!_bmSelData){
+    setStatus('请先在预览中选中要标记的文字', 'err');
+    return;
+  }
+  bmNameInp.value = '';
+  bmCommentInp.value = '';
+
+  const pvRect = document.getElementById('pane-preview').getBoundingClientRect();
+  const panelW = 268;
+  const left   = Math.max(pvRect.left + 10, Math.min(pvRect.right - panelW - 10, pvRect.left + (pvRect.width - panelW) / 2));
+  const top    = pvRect.top + 56;
+  bmPanel.style.left = left + 'px';
+  bmPanel.style.top  = top  + 'px';
+  bmPanel.classList.add('show');
+  setTimeout(() => bmNameInp.focus(), 30);
+}
+
+function closeBmPanel(){ bmPanel.classList.remove('show'); _bmSelData = null; }
+
+function confirmAddBookmark(){
+  const name = bmNameInp.value.trim();
+  if(!name){
+    bmNameInp.focus();
+    bmNameInp.style.borderColor = 'var(--red)';
+    setTimeout(() => { bmNameInp.style.borderColor = ''; }, 800);
+    return;
+  }
+  if(!_bmSelData){ closeBmPanel(); return; }
+
+  const bm = {
+    id:          genBmId(),
+    name,
+    comment:     bmCommentInp.value.trim(),
+    text:        _bmSelData.text,
+    ctxBefore:   _bmSelData.ctxBefore,
+    ctxAfter:    _bmSelData.ctxAfter,
+    commentOpen: false,
+    date:        new Date().toISOString()
+  };
+  bookmarks.push(bm);
+  applyOneBmMark(bm);
+  renderBookmarkSidebar();
+  closeBmPanel();
+  setStatus('书签已添加：' + name, 'ok');
+
+  const bmSidebar = document.getElementById('bm-sidebar');
+  if(bmSidebar.classList.contains('collapsed')){
+    bmSidebar.classList.remove('collapsed');
+    document.getElementById('bm-expand-fab').classList.remove('visible');
+  }
+}
+
+document.getElementById('bm-tb-btn').addEventListener('click', openBmPanel);
+document.getElementById('bm-sidebar-add-btn').addEventListener('click', openBmPanel);
+document.getElementById('bm-cancel-btn').addEventListener('click', closeBmPanel);
+document.getElementById('bm-confirm-btn').addEventListener('click', confirmAddBookmark);
+bmNameInp.addEventListener('keydown', e => {
+  if(e.key === 'Enter')  { e.preventDefault(); confirmAddBookmark(); }
+  if(e.key === 'Escape') { closeBmPanel(); }
+});
+bmCommentInp.addEventListener('keydown', e => {
+  if(e.key === 'Escape') { closeBmPanel(); }
+});
+document.addEventListener('mousedown', e => {
+  if(!bmPanel.classList.contains('show')) return;
+  if(!bmPanel.contains(e.target) &&
+     !e.target.closest('#bm-tb-btn') &&
+     !e.target.closest('#bm-sidebar-add-btn')){
+    closeBmPanel();
+  }
+});
+
+// ─── BOOKMARK SIDEBAR COLLAPSE ──────────────────────────────────
+(function(){
+  const bmSidebar   = document.getElementById('bm-sidebar');
+  const bmCollapse  = document.getElementById('bm-collapse-btn');
+  const bmExpandFab = document.getElementById('bm-expand-fab');
+  bmCollapse.addEventListener('click', () => {
+    bmSidebar.classList.add('collapsed');
+    bmExpandFab.classList.add('visible');
+  });
+  bmExpandFab.addEventListener('click', () => {
+    bmSidebar.classList.remove('collapsed');
+    bmExpandFab.classList.remove('visible');
+  });
+})();
+
+// ─── HELP MODAL ────────────────────────────────────────────────
+(()=>{
+  const overlay = document.getElementById('help-overlay');
+  const openHelp  = () => overlay.classList.add('show');
+  const closeHelp = () => overlay.classList.remove('show');
+
+  document.getElementById('help-btn').addEventListener('click', openHelp);
+  document.getElementById('modal-close-btn').addEventListener('click', closeHelp);
+  document.getElementById('modal-ok-btn').addEventListener('click', closeHelp);
+  overlay.addEventListener('click', e => { if(e.target === overlay) closeHelp(); });
+  document.addEventListener('keydown', e => { if(e.key === 'Escape' && overlay.classList.contains('show')) closeHelp(); });
+
+  // 首次访问自动弹出
+  if(!localStorage.getItem('mark2doc_intro_seen')){
+    localStorage.setItem('mark2doc_intro_seen','1');
+    setTimeout(openHelp, 400); // 稍作延迟，等页面渲染完成
+  }
+})();
+</script>
+</body>
+</html>
